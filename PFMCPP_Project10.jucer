@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="xLbyvx" name="PFMCPP_Project10" projectType="audioplug" jucerVersion="5.4.5"
-              cppLanguageStandard="17">
+<JUCERPROJECT id="xLbyvx" name="PFMCPP_Project10" projectType="audioplug" jucerVersion="5.4.7"
+              cppLanguageStandard="17" companyName="Cosmic Monkey Sounds">
   <MAINGROUP id="ORymcZ" name="PFMCPP_Project10">
     <GROUP id="{A92DB368-5243-6129-F1D5-73D06AFB4761}" name="Source">
       <FILE id="GoZaVW" name="PluginProcessor.cpp" compile="1" resource="0"
