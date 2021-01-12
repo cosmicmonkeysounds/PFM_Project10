@@ -12,9 +12,49 @@
 
 #include "../JuceLibraryCode/JuceHeader.h"
 
+template<typename T>
+struct Fifo
+{
+    
+    void prepare( int numberOfSamples )
+    {
+        
+        prepared.set( true );
+    }
+    
+    bool push( const T& thingToPush )
+    {
+        
+    }
+    
+    bool pull( T& thingToPull )
+    {
+        
+    }
+    
+private:
+    
+    Atomic<bool> prepared{false};
+    
+};
+
+template<typename T>
+struct FifoBuffer
+{
+    
+    std::array<Fifo<T>> getFifos
+    {
+        return fifos;
+    }
+  
+private:
+    std::array<Fifo<T>, 2> fifos;
+};
+
+
 //==============================================================================
-/**
-*/
+
+
 class Pfmcpp_project10AudioProcessor  : public AudioProcessor
 {
 public:
@@ -54,6 +94,8 @@ public:
     //==============================================================================
     void getStateInformation (MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
+    
+    FifoBuffer< AudioBuffer<float> > fifoBuffers;
 
 private:
     //==============================================================================

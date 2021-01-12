@@ -14,8 +14,20 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-/**
-*/
+
+
+struct GUIBuffer : Thread, Timer, Component
+{
+    
+    
+private:
+    
+};
+
+
+//==============================================================================
+
+
 class Pfmcpp_project10AudioProcessorEditor  : public AudioProcessorEditor
 {
 public:
