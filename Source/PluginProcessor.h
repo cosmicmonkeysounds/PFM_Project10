@@ -18,11 +18,12 @@ struct Fifo
     
     void prepare( int numberOfSamples )
     {
-        
+        numSamples = static_cast<size_t>(numberOfSamples);
+        buffer.setSize( 1, numSamples );
         prepared.set( true );
     }
     
-    bool push( const T& thingToPush )
+    bool push( const T& itemToAdd )
     {
         
     }
@@ -32,23 +33,89 @@ struct Fifo
         
     }
     
+    AudioBuffer<float>& getBuffer()
+    {
+        return buffer;
+    }
+    
+    size_t getNumSamples()
+    {
+        return numSamples;
+    }
+    
 private:
     
+    AudioBuffer<float> buffer;
+    size_t numSamples{0};
     Atomic<bool> prepared{false};
     
 };
 
-template<typename T>
-struct FifoBuffer
+template<int NumChannels>
+struct FifoHolder : Thread, Timer, Component
 {
     
-    std::array<Fifo<T>> getFifos
+    FifoHolder()
+        : Thread( "FifoHolder Thread" )
+    {
+        startThread();
+        startTimerHz( 20 );
+    }
+    
+    ~FifoHolder()
+    {
+        notify();
+        stopThread( 100 );
+    }
+    
+    void paint( Graphics& g ) override
+    {
+        
+    }
+    
+    void timerCallback() override
+    {
+        
+    }
+    
+    void run() override
+    {
+        while( true )
+        {
+            wait( -1 );
+            DBG( "FifoHolder:run()" );
+            
+            if( threadShouldExit() )
+                return;
+        }
+    }
+    
+    void cloneBuffers( AudioBuffer<float>& bufferFromProcessLoop )
+    {
+        
+        dsp::AudioBlock<float> audioBlock( bufferFromProcessLoop );
+        
+        jassert( audioBlock.getNumChannels() == NumChannels );
+        
+        for( int i = 0; i < NumChannels; ++i )
+        {
+            jassert( audioBlock.getSingleChannelBlock(i).getNumSamples() <= fifos.at(i).getNumSamples() );
+            
+            fifos.at(i).getBuffer().clear();
+        }
+        
+        notify();
+    }
+    
+    std::array<Fifo<AudioBuffer<float>>, NumChannels>& getFifos()
     {
         return fifos;
     }
   
 private:
-    std::array<Fifo<T>, 2> fifos;
+    
+    std::array<Fifo<AudioBuffer<float>>, NumChannels> fifos;
+    
 };
 
 
@@ -95,7 +162,7 @@ public:
     void getStateInformation (MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
     
-    FifoBuffer< AudioBuffer<float> > fifoBuffers;
+    FifoHolder<2> fifoHolder;
 
 private:
     //==============================================================================
