@@ -19,25 +19,45 @@ struct Fifo
     void prepare( int numberOfSamples )
     {
         numSamples = static_cast<size_t>(numberOfSamples);
-        buffer.setSize( 1, numSamples );
+        
+        for( auto& buffer : buffers )
+        {
+            buffer.setSize( 1, numSamples );
+        }
+        
     }
     
     bool push( const T& itemToAdd )
     {
+        auto scopedWriter = fifo.write(1);
+        
+        if( scopedWriter.blockSize1 >= 1 )
+        {
+            return true;
+        }
         
         return false;
     }
     
-    bool pull( T& thingToPull )
+    bool pull( T& itemToPull )
     {
+        auto scopedReader = fifo.read(1);
+        
+        if( scopedReader.blockSize1 >= 1 )
+        {
+            return true;
+        }
         
         return false;
     }
     
 private:
     
-    AudioBuffer<float> buffer;
+    static constexpr int Size = 5;
     size_t numSamples{0};
+    
+    std::array<T, Size> buffers;
+    AbstractFifo fifo{Size};
     
 };
 
@@ -85,7 +105,7 @@ public:
     void getStateInformation (MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
     
-    Fifo<AudioBuffer<float>> leftFifo, rightFifo;
+    Fifo<AudioBuffer<float>> fifo;
 
 private:
     //==============================================================================

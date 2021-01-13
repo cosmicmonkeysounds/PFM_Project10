@@ -96,9 +96,7 @@ void Pfmcpp_project10AudioProcessor::changeProgramName (int index, const String&
 void Pfmcpp_project10AudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     
-    
-    leftFifo.prepare( samplesPerBlock );
-    rightFifo.prepare( samplesPerBlock );
+    fifo.prepare( samplesPerBlock );
     
 }
 
@@ -162,8 +160,7 @@ void Pfmcpp_project10AudioProcessor::processBlock (AudioBuffer<float>& buffer, M
     
     if( buffer.getNumChannels() == 2 )
     {
-        leftFifo.push( buffer );
-        rightFifo.push( buffer );
+        fifo.push( buffer );
     }
 
     
