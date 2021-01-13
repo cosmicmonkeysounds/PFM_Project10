@@ -95,12 +95,11 @@ void Pfmcpp_project10AudioProcessor::changeProgramName (int index, const String&
 //==============================================================================
 void Pfmcpp_project10AudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    //auto* fifos = fifoBuffers.getFifos().begin();
     
-    for( auto* fifo = fifoHolder.getFifos().begin(); fifo != fifoHolder.getFifos().end(); ++fifo )
-    {
-        fifo->prepare( samplesPerBlock );
-    }
+    
+    leftFifo.prepare( samplesPerBlock );
+    rightFifo.prepare( samplesPerBlock );
+    
 }
 
 void Pfmcpp_project10AudioProcessor::releaseResources()
@@ -161,7 +160,12 @@ void Pfmcpp_project10AudioProcessor::processBlock (AudioBuffer<float>& buffer, M
         // ..do something to the data...
     }
     
-    fifoHolder.cloneBuffers( buffer );
+    if( buffer.getNumChannels() == 2 )
+    {
+        leftFifo.push( buffer );
+        rightFifo.push( buffer );
+    }
+
     
 }
 

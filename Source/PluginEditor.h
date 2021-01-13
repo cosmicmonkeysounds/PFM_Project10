@@ -19,8 +19,19 @@
 struct GUIBuffer : Thread, Timer, Component
 {
     
+    GUIBuffer();
+    ~GUIBuffer();
+    
+    
+    void run() override;
+    void timerCallback() override;
+    void paint( Graphics& ) override;
+    void resized() override;
+    
     
 private:
+    
+    AudioBuffer<float> buffer;
     
 };
 
@@ -42,6 +53,9 @@ private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     Pfmcpp_project10AudioProcessor& processor;
+    
+    GUIBuffer guiBuffer;
+    
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };

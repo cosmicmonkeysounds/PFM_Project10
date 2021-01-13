@@ -20,101 +20,24 @@ struct Fifo
     {
         numSamples = static_cast<size_t>(numberOfSamples);
         buffer.setSize( 1, numSamples );
-        prepared.set( true );
     }
     
     bool push( const T& itemToAdd )
     {
         
+        return false;
     }
     
     bool pull( T& thingToPull )
     {
         
-    }
-    
-    AudioBuffer<float>& getBuffer()
-    {
-        return buffer;
-    }
-    
-    size_t getNumSamples()
-    {
-        return numSamples;
+        return false;
     }
     
 private:
     
     AudioBuffer<float> buffer;
     size_t numSamples{0};
-    Atomic<bool> prepared{false};
-    
-};
-
-template<int NumChannels>
-struct FifoHolder : Thread, Timer, Component
-{
-    
-    FifoHolder()
-        : Thread( "FifoHolder Thread" )
-    {
-        startThread();
-        startTimerHz( 20 );
-    }
-    
-    ~FifoHolder()
-    {
-        notify();
-        stopThread( 100 );
-    }
-    
-    void paint( Graphics& g ) override
-    {
-        
-    }
-    
-    void timerCallback() override
-    {
-        
-    }
-    
-    void run() override
-    {
-        while( true )
-        {
-            wait( -1 );
-            DBG( "FifoHolder:run()" );
-            
-            if( threadShouldExit() )
-                return;
-        }
-    }
-    
-    void cloneBuffers( AudioBuffer<float>& bufferFromProcessLoop )
-    {
-        
-        dsp::AudioBlock<float> audioBlock( bufferFromProcessLoop );
-        
-        jassert( audioBlock.getNumChannels() == NumChannels );
-        
-        for( int i = 0; i < NumChannels; ++i )
-        {
-            jassert( audioBlock.getSingleChannelBlock(i).getNumSamples() <= fifos.at(i).getNumSamples() );
-            
-            fifos.at(i).getBuffer().clear();
-        }
-        
-        notify();
-    }
-    
-    std::array<Fifo<AudioBuffer<float>>, NumChannels>& getFifos()
-    {
-        return fifos;
-    }
-  
-private:
-    
-    std::array<Fifo<AudioBuffer<float>>, NumChannels> fifos;
     
 };
 
@@ -162,7 +85,7 @@ public:
     void getStateInformation (MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
     
-    FifoHolder<2> fifoHolder;
+    Fifo<AudioBuffer<float>> leftFifo, rightFifo;
 
 private:
     //==============================================================================
