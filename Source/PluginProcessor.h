@@ -16,13 +16,12 @@ template<typename T>
 struct Fifo
 {
     
-    void prepare( int numberOfSamples )
+    void prepare( int numberOfChannels, int numberOfSamples )
     {
-        numSamples = static_cast<size_t>(numberOfSamples);
-        
+    
         for( auto& buffer : buffers )
         {
-            buffer.setSize( 1, numSamples );
+            buffer.setSize( numberOfChannels, numberOfSamples );
         }
         
     }
@@ -54,8 +53,6 @@ struct Fifo
 private:
     
     static constexpr int Size = 5;
-    size_t numSamples{0};
-    
     std::array<T, Size> buffers;
     AbstractFifo fifo{Size};
     
