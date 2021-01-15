@@ -95,8 +95,9 @@ void Pfmcpp_project10AudioProcessor::changeProgramName (int index, const String&
 //==============================================================================
 void Pfmcpp_project10AudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
+    
+    fifo.prepare( this->getTotalNumOutputChannels(), samplesPerBlock );
+    
 }
 
 void Pfmcpp_project10AudioProcessor::releaseResources()
@@ -156,6 +157,12 @@ void Pfmcpp_project10AudioProcessor::processBlock (AudioBuffer<float>& buffer, M
 
         // ..do something to the data...
     }
+    
+
+    fifo.push( buffer );
+    
+
+    
 }
 
 //==============================================================================

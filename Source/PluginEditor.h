@@ -13,9 +13,12 @@
 #include "../JuceLibraryCode/JuceHeader.h"
 #include "PluginProcessor.h"
 
+
+
+
 //==============================================================================
-/**
-*/
+
+
 class Pfmcpp_project10AudioProcessorEditor  : public AudioProcessorEditor
 {
 public:

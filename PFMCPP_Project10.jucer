@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="xLbyvx" name="PFMCPP_Project10" projectType="audioplug" jucerVersion="5.4.7"
-              cppLanguageStandard="17" companyName="Cosmic Monkey Sounds">
+<JUCERPROJECT id="xLbyvx" name="PFMCPP_Project10" projectType="audioplug" cppLanguageStandard="17"
+              companyName="Cosmic Monkey Sounds" jucerFormatVersion="1">
   <MAINGROUP id="ORymcZ" name="PFMCPP_Project10">
     <GROUP id="{A92DB368-5243-6129-F1D5-73D06AFB4761}" name="Source">
       <FILE id="GoZaVW" name="PluginProcessor.cpp" compile="1" resource="0"
@@ -32,6 +32,7 @@
         <MODULEPATH id="juce_graphics" path="../JUCE/modules"/>
         <MODULEPATH id="juce_gui_basics" path="../JUCE/modules"/>
         <MODULEPATH id="juce_gui_extra" path="../JUCE/modules"/>
+        <MODULEPATH id="juce_dsp" path="../JUCE/modules"/>
       </MODULEPATHS>
     </XCODE_MAC>
   </EXPORTFORMATS>
@@ -45,6 +46,7 @@
     <MODULE id="juce_audio_utils" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_dsp" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
