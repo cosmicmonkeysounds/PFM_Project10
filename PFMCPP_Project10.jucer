@@ -4,6 +4,9 @@
               companyName="Cosmic Monkey Sounds" jucerFormatVersion="1">
   <MAINGROUP id="ORymcZ" name="PFMCPP_Project10">
     <GROUP id="{A92DB368-5243-6129-F1D5-73D06AFB4761}" name="Source">
+      <FILE id="QUccOI" name="Fifo.h" compile="0" resource="0" file="Source/Fifo.h"/>
+      <FILE id="MfnYEp" name="Meter.cpp" compile="1" resource="0" file="Source/Meter.cpp"/>
+      <FILE id="ADkboD" name="Meter.h" compile="0" resource="0" file="Source/Meter.h"/>
       <FILE id="GoZaVW" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="m8T8iH" name="PluginProcessor.h" compile="0" resource="0"
