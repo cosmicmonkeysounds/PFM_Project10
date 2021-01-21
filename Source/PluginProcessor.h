@@ -32,6 +32,8 @@ struct Fifo
         
         if( scopedWriter.blockSize1 >= 1 )
         {
+            auto& buffer = buffers[scopedWriter.startIndex1];
+            buffer = itemToAdd;
             return true;
         }
         
@@ -44,6 +46,8 @@ struct Fifo
         
         if( scopedReader.blockSize1 >= 1 )
         {
+            auto& buffer = buffers[scopedReader.startIndex1];
+            itemToPull = buffer;
             return true;
         }
         
@@ -106,5 +110,8 @@ public:
 
 private:
     //==============================================================================
+    
+    Random r;
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessor)
 };
