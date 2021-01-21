@@ -24,6 +24,9 @@ public:
     void resized() override;
     
     void update(float);
+    
+    float negativeInfinityDB{-120.f},
+          maxDB{0.f};
 
 private:
     

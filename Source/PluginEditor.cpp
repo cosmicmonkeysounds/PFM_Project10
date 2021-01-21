@@ -29,12 +29,15 @@ void Meter::paint( juce::Graphics& g )
     
     DBG( "Painting meter with level: " << currentLevel );
     
+    auto height = jmap( currentLevel,
+                        negativeInfinityDB, maxDB,
+                        (float)h, 0.f
+                       );
+    
+    //DBG( "Height: " << height );
+    
     g.setColour( Colours::pink );
-    g.fillRect( bounds.withHeight(h*currentLevel).withY( jmap(currentLevel,
-                                                              0.f, 1.f,
-                                                            (float)h, 0.f)
-                                                        )
-               );
+    g.fillRect( bounds.withHeight(h).withY(height) );
 }
 
 void Meter::resized()
@@ -90,6 +93,6 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
 {
     if( processor.fifo.pull(buffer) )
     {
-        testMeter.update( buffer.getRMSLevel(0, 0, buffer.getNumSamples()) );
+        testMeter.update( Decibels::gainToDecibels(buffer.getRMSLevel(0, 0, buffer.getNumSamples()), testMeter.negativeInfinityDB) );
     }
 }
