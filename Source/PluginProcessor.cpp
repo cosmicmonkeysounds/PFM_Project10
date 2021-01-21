@@ -155,13 +155,22 @@ void Pfmcpp_project10AudioProcessor::processBlock (AudioBuffer<float>& buffer, M
     {
         auto* channelData = buffer.getWritePointer (channel);
 
+        // just here to make some white noise for testing!
+        for( int sample = 0; sample < buffer.getNumSamples(); ++sample )
+        {
+            float samp = r.nextFloat();
+            buffer.setSample( channel, sample, samp );
+        }
+        
+        
+        
         // ..do something to the data...
     }
     
 
     fifo.push( buffer );
     
-
+    buffer.clear();
     
 }
 
