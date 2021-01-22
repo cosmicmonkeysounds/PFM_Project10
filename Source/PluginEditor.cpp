@@ -11,33 +11,20 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-Meter::Meter()
-{
-
-
-}
-
-Meter::~Meter()
-{
-
-}
-
 void Meter::paint( juce::Graphics& g )
 {
     auto bounds = this->getLocalBounds();
-    auto h = bounds.getHeight();
+    float heightOfWindow = bounds.getHeight();
     
-    DBG( "Painting meter with level: " << currentLevel );
+    //DBG( "Painting meter with level: " << currentLevel );
     
-    auto height = jmap( currentLevel,
-                        negativeInfinityDB, maxDB,
-                        (float)h, 0.f
-                       );
-    
-    //DBG( "Height: " << height );
+    auto levelMappedHeight = jmap( currentLevel,
+                                   NEGATIVE_INFINITY_DB, MAX_DB,
+                                   heightOfWindow, 0.f
+                            );
     
     g.setColour( Colours::pink );
-    g.fillRect( bounds.withHeight(h).withY(height) );
+    g.fillRect( bounds.withHeight(heightOfWindow).withY(levelMappedHeight) );
 }
 
 void Meter::resized()
@@ -54,6 +41,42 @@ void Meter::update( float newLevel )
 
 //==============================================================================
 
+DB_Scale::DB_Scale( Meter& _owner )
+    : owner( _owner )
+{
+    
+}
+
+
+void DB_Scale::paint( juce::Graphics& g )
+{
+    g.setColour( juce::Colours::white );
+    
+    auto meterBounds = owner.getLocalBounds(); //.withHeight( getLocalBounds().getHeight()/numberOfSteps );
+    auto textBounds  = getLocalBounds();
+    
+    float delta = -(meterBounds.getHeight() / numberOfSteps);
+    
+    float number = NEGATIVE_INFINITY_DB;
+    
+    for( int i = 0; i <= (int)numberOfSteps; ++i )
+    {
+        g.drawText( juce::String(number), textBounds, juce::Justification::centredBottom );
+        number += dbStepSize;
+        textBounds.translate( 0, delta );
+    }
+    
+    
+}
+
+void DB_Scale::resized()
+{
+    
+}
+
+
+//==============================================================================
+
 
 Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmcpp_project10AudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
@@ -64,8 +87,9 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     startTimerHz( 20 );
     
     addAndMakeVisible( testMeter );
+    addAndMakeVisible( testScale );
     
-    setSize (400, 300);
+    setSize (800, 640);
 }
 
 Pfmcpp_project10AudioProcessorEditor::~Pfmcpp_project10AudioProcessorEditor()
@@ -85,14 +109,21 @@ void Pfmcpp_project10AudioProcessorEditor::resized()
     // subcomponents in your editor..
     
     auto bounds = getBounds();
+    DBG( "editor bounds: " << bounds.toString() );
     
-    testMeter.setBounds( bounds.getWidth()/2, 10, 30, bounds.getHeight()+5 );
+    testMeter.setBounds( bounds.getWidth()/2, 75, 30, bounds.getHeight()-150 );
+    testScale.setBounds( testMeter.getBounds().translated(40, -15).withHeight(testMeter.getHeight() + 20) );
+ 
 }
 
 void Pfmcpp_project10AudioProcessorEditor::timerCallback()
 {
     if( processor.fifo.pull(buffer) )
     {
-        testMeter.update( Decibels::gainToDecibels(buffer.getRMSLevel(0, 0, buffer.getNumSamples()), testMeter.negativeInfinityDB) );
+        testMeter.update
+        (
+            Decibels::gainToDecibels( buffer.getRMSLevel(0, 0, buffer.getNumSamples()), NEGATIVE_INFINITY_DB )
+        );
+        
     }
 }
