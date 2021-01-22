@@ -13,6 +13,9 @@
 
 void Meter::paint( juce::Graphics& g )
 {
+    
+    g.fillAll( juce::Colours::black );
+    
     auto bounds = this->getLocalBounds();
     float heightOfWindow = bounds.getHeight();
     
@@ -29,7 +32,29 @@ void Meter::paint( juce::Graphics& g )
 
 void Meter::resized()
 {
-
+    DBG("Meter::resized()");
+    
+    ticks.clear();
+    
+    int meterBoxHeight = getHeight();
+    float y = NEGATIVE_INFINITY_DB;
+    
+    for( int i = 0; i <= (int)numberOfSteps; ++i )
+    {
+        Tick tick;
+        tick.db = y;
+        tick.y = juce::jmap( (int)y,
+                             (int)NEGATIVE_INFINITY_DB, (int)MAX_DB,
+                             meterBoxHeight, 0
+                            );
+        
+        DBG( "Tick " << i << " db: " << tick.db << " y: " << tick.y );
+        
+        ticks.push_back( tick );
+        y += dbStepSize;
+    }
+    
+    
 }
 
 void Meter::update( float newLevel )
@@ -41,37 +66,19 @@ void Meter::update( float newLevel )
 
 //==============================================================================
 
-DB_Scale::DB_Scale( Meter& _owner )
-    : owner( _owner )
-{
-    
-}
-
 
 void DB_Scale::paint( juce::Graphics& g )
 {
     g.setColour( juce::Colours::white );
     
-    auto meterBounds = owner.getLocalBounds(); //.withHeight( getLocalBounds().getHeight()/numberOfSteps );
-    auto textBounds  = getLocalBounds();
-    
-    float delta = -(meterBounds.getHeight() / numberOfSteps);
-    
-    float number = NEGATIVE_INFINITY_DB;
-    
-    for( int i = 0; i <= (int)numberOfSteps; ++i )
-    {
-        g.drawText( juce::String(number), textBounds, juce::Justification::centredBottom );
-        number += dbStepSize;
-        textBounds.translate( 0, delta );
-    }
-    
-    
+    for( auto tick : ticks )
+        g.drawSingleLineText( juce::String(tick.db), 5, tick.y + yOffset );
+
 }
 
 void DB_Scale::resized()
 {
-    
+    DBG("DB_Scale::resized()");
 }
 
 
@@ -108,11 +115,20 @@ void Pfmcpp_project10AudioProcessorEditor::resized()
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
     
-    auto bounds = getBounds();
-    DBG( "editor bounds: " << bounds.toString() );
+    DBG("Editor::resized()");
     
-    testMeter.setBounds( bounds.getWidth()/2, 75, 30, bounds.getHeight()-150 );
-    testScale.setBounds( testMeter.getBounds().translated(40, -15).withHeight(testMeter.getHeight() + 20) );
+    auto bounds = getBounds();
+    
+    testMeter.setBounds( bounds.getWidth()/2,
+                         JUCE_LIVE_CONSTANT(75),
+                         30,
+                         JUCE_LIVE_CONSTANT(bounds.getHeight()-150)
+                        );
+    
+    testScale.ticks   = testMeter.ticks;
+    testScale.yOffset = testMeter.getY();
+    
+    testScale.setBounds( testMeter.getRight(), 0, 30, getHeight() );
  
 }
 
@@ -120,10 +136,8 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
 {
     if( processor.fifo.pull(buffer) )
     {
-        testMeter.update
-        (
-            Decibels::gainToDecibels( buffer.getRMSLevel(0, 0, buffer.getNumSamples()), NEGATIVE_INFINITY_DB )
-        );
-        
+        auto leftRMSLevel = buffer.getRMSLevel( 0, 0, buffer.getNumSamples() );
+        auto leftRMSdB    = juce::Decibels::gainToDecibels( leftRMSLevel );
+        testMeter.update( leftRMSdB );
     }
 }
