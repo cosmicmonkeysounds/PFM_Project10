@@ -13,26 +13,65 @@
 #include "../JuceLibraryCode/JuceHeader.h"
 #include "PluginProcessor.h"
 
+#define NEGATIVE_INFINITY_DB -66.f
+#define MAX_DB                12.f
 
-class Meter  : public juce::Component
+
+//==============================================================================
+
+
+struct Tick
+{
+    int y{0};
+    float db{0.f};
+};
+
+
+//==============================================================================
+
+
+class Meter : public juce::Component
 {
 public:
-    Meter();
-    ~Meter() override;
+    Meter() = default;
+    ~Meter() override = default;
 
-    void paint (juce::Graphics&) override;
+    void paint( juce::Graphics& ) override;
     void resized() override;
     
     void update(float);
     
-    float negativeInfinityDB{-120.f},
-          maxDB{0.f};
+    std::vector<Tick> ticks;
 
 private:
     
     float currentLevel{0.f};
     
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Meter)
+    const float dbStepSize = 6.f;
+    const float numberOfSteps = (MAX_DB - NEGATIVE_INFINITY_DB) / dbStepSize;
+    
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR( Meter )
+};
+
+
+//==============================================================================
+
+
+class DB_Scale : public juce::Component
+{
+public:
+    DB_Scale() = default;
+    ~DB_Scale() override = default;
+    
+    void paint( juce::Graphics& ) override;
+    void resized() override;
+    
+    std::vector<Tick> ticks;
+    int yOffset{0};
+    
+private:
+    
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR( DB_Scale )
 };
 
 
@@ -59,6 +98,7 @@ private:
     AudioBuffer<float> buffer;
     
     Meter testMeter;
+    DB_Scale testScale;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };
