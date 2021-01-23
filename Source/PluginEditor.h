@@ -20,7 +20,7 @@
 //==============================================================================
 
 
-struct ValueHolder : public Timer
+struct ValueHolder : Timer
 {
     
     ValueHolder();
@@ -36,13 +36,12 @@ struct ValueHolder : public Timer
     
 private:
     
-    int holdTime{10};
+    int holdTime{100};
     
     float currentValue{ NEGATIVE_INFINITY_DB },
           threshold{0.f};
     
-    double now = juce::Time::getMillisecondCounterHiRes(),
-           peakTime = now;
+    juce::int64 peakTime = juce::Time::currentTimeMillis();
     
     void resetCurrentValue() { currentValue = threshold; }
 };

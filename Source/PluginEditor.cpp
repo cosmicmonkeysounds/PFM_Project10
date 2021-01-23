@@ -13,7 +13,7 @@
 
 ValueHolder::ValueHolder()
 {
-    startTimerHz(10);
+    startTimerHz(20);
 }
 
 ValueHolder::~ValueHolder()
@@ -23,15 +23,16 @@ ValueHolder::~ValueHolder()
 
 void ValueHolder::timerCallback()
 {
-    if( peakTime - now > holdTime )
+        
+    if( juce::Time::currentTimeMillis() - peakTime > holdTime )
     {
-        //DBG( "timerCallback(): peakvalue over time!" );
+        DBG( "timerCallback(): peakValue timed out!" );
         currentValue = threshold;
     }
     
-    now = juce::Time::getMillisecondCounterHiRes();
-//    DBG( "Current Time: " << now );
-//    DBG( "PeakTime:     " << peakTime );
+    DBG( "Current Time: " << juce::Time::currentTimeMillis() );
+    DBG( "PeakTime:     " << peakTime );
+    
 }
 
 void ValueHolder::setThreshold(float newThreshold)
@@ -44,9 +45,9 @@ void ValueHolder::updateHeldValue(float input)
 
     if( input > threshold )
     {
-        //DBG( "updateHeldValue(): Input is over threshold!" );
+        DBG( "updateHeldValue(): Input is over threshold!" );
         currentValue = input;
-        peakTime = juce::Time::getMillisecondCounterHiRes();
+        peakTime = juce::Time::currentTimeMillis();
     }
     
     else
@@ -67,12 +68,7 @@ float ValueHolder::getCurrentValue() const
 
 bool ValueHolder::isOverThreshold() const
 {
-    if( currentValue > threshold )
-    {
-        return true;
-    }
-    
-    return false;
+    return currentValue > threshold;
 }
 
 //==============================================================================
