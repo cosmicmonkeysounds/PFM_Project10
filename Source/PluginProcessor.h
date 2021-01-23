@@ -12,6 +12,8 @@
 
 #include "../JuceLibraryCode/JuceHeader.h"
 
+#define SINE_OSC_TEST true
+
 template<typename T>
 struct Fifo
 {
@@ -111,7 +113,10 @@ public:
 private:
     //==============================================================================
     
-    Random r;
-    
+#if SINE_OSC_TEST
+    juce::dsp::Oscillator<float> testOsc{ [](float x) { return std::sin(x); }};
+    juce::dsp::Gain<float> testOscGain;
+#endif
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessor)
 };
