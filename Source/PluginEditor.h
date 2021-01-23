@@ -20,6 +20,37 @@
 //==============================================================================
 
 
+struct ValueHolder : public Timer
+{
+    
+    ValueHolder();
+    ~ValueHolder() override;
+    
+    void timerCallback() override;
+    
+    void setThreshold(float newThreshold);
+    void updateHeldValue(float input);
+    void setHoldTime(int ms);
+    float getCurrentValue() const;
+    bool isOverThreshold() const;
+    
+private:
+    
+    int holdTime{10};
+    
+    float currentValue{ NEGATIVE_INFINITY_DB },
+          threshold{0.f};
+    
+    double now = juce::Time::getMillisecondCounterHiRes(),
+           peakTime = now;
+    
+    void resetCurrentValue() { currentValue = threshold; }
+};
+
+
+//==============================================================================
+
+
 struct Tick
 {
     int y{0};
@@ -46,6 +77,8 @@ public:
 private:
     
     float currentLevel{0.f};
+    
+    ValueHolder testValueHolder;
     
     const float dbStepSize = 6.f;
     const float numberOfSteps = (MAX_DB - NEGATIVE_INFINITY_DB) / dbStepSize;

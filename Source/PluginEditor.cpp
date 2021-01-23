@@ -11,6 +11,72 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+ValueHolder::ValueHolder()
+{
+    startTimerHz(10);
+}
+
+ValueHolder::~ValueHolder()
+{
+    stopTimer();
+}
+
+void ValueHolder::timerCallback()
+{
+    if( peakTime - now > holdTime )
+    {
+        //DBG( "timerCallback(): peakvalue over time!" );
+        currentValue = threshold;
+    }
+    
+    now = juce::Time::getMillisecondCounterHiRes();
+//    DBG( "Current Time: " << now );
+//    DBG( "PeakTime:     " << peakTime );
+}
+
+void ValueHolder::setThreshold(float newThreshold)
+{
+    threshold = newThreshold;
+}
+
+void ValueHolder::updateHeldValue(float input)
+{
+
+    if( input > threshold )
+    {
+        //DBG( "updateHeldValue(): Input is over threshold!" );
+        currentValue = input;
+        peakTime = juce::Time::getMillisecondCounterHiRes();
+    }
+    
+    else
+    {
+        resetCurrentValue();
+    }
+}
+
+void ValueHolder::setHoldTime(int ms)
+{
+    holdTime = ms;
+}
+
+float ValueHolder::getCurrentValue() const
+{
+    return currentValue;
+}
+
+bool ValueHolder::isOverThreshold() const
+{
+    if( currentValue > threshold )
+    {
+        return true;
+    }
+    
+    return false;
+}
+
+//==============================================================================
+
 void Meter::paint( juce::Graphics& g )
 {
     
@@ -23,8 +89,7 @@ void Meter::paint( juce::Graphics& g )
     
     auto levelMappedHeight = jmap( currentLevel,
                                    NEGATIVE_INFINITY_DB, MAX_DB,
-                                   heightOfWindow, 0.f
-                            );
+                                   heightOfWindow, 0.f );
     
     g.setColour( Colours::pink );
     g.fillRect( bounds.withHeight(heightOfWindow).withY(levelMappedHeight) );
@@ -32,7 +97,6 @@ void Meter::paint( juce::Graphics& g )
 
 void Meter::resized()
 {
-    DBG("Meter::resized()");
     
     ticks.clear();
     
@@ -45,21 +109,18 @@ void Meter::resized()
         tick.db = y;
         tick.y = juce::jmap( (int)y,
                              (int)NEGATIVE_INFINITY_DB, (int)MAX_DB,
-                             meterBoxHeight, 0
-                            );
-        
-        DBG( "Tick " << i << " db: " << tick.db << " y: " << tick.y );
+                             meterBoxHeight, 0 );
         
         ticks.push_back( tick );
         y += dbStepSize;
     }
-    
     
 }
 
 void Meter::update( float newLevel )
 {
     currentLevel = newLevel;
+    testValueHolder.updateHeldValue( currentLevel );
     repaint();
 }
 
@@ -78,7 +139,7 @@ void DB_Scale::paint( juce::Graphics& g )
 
 void DB_Scale::resized()
 {
-    DBG("DB_Scale::resized()");
+
 }
 
 
@@ -88,8 +149,6 @@ void DB_Scale::resized()
 Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmcpp_project10AudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
 {
-    // Make sure that before the constructor has finished, you've set the
-    // editor's size to whatever you need it to be.
     
     startTimerHz( 20 );
     
@@ -97,6 +156,7 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     addAndMakeVisible( testScale );
     
     setSize (800, 640);
+    
 }
 
 Pfmcpp_project10AudioProcessorEditor::~Pfmcpp_project10AudioProcessorEditor()
@@ -112,18 +172,13 @@ void Pfmcpp_project10AudioProcessorEditor::paint (Graphics& g)
 
 void Pfmcpp_project10AudioProcessorEditor::resized()
 {
-    // This is generally where you'll want to lay out the positions of any
-    // subcomponents in your editor..
-    
-    DBG("Editor::resized()");
     
     auto bounds = getBounds();
     
     testMeter.setBounds( bounds.getWidth()/2,
                          JUCE_LIVE_CONSTANT(75),
                          30,
-                         JUCE_LIVE_CONSTANT(bounds.getHeight()-150)
-                        );
+                         JUCE_LIVE_CONSTANT(bounds.getHeight()-150) );
     
     testScale.ticks   = testMeter.ticks;
     testScale.yOffset = testMeter.getY();
@@ -137,7 +192,6 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
     if( processor.fifo.pull(buffer) )
     {
 
-        
         auto leftRMSLevel = buffer.getRMSLevel( 0, 0, buffer.getNumSamples() );
         
 #if SINE_OSC_TEST
