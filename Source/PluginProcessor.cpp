@@ -98,6 +98,20 @@ void Pfmcpp_project10AudioProcessor::prepareToPlay (double sampleRate, int sampl
     
     fifo.prepare( this->getTotalNumOutputChannels(), samplesPerBlock );
     
+#if SINE_OSC_TEST
+    
+    juce::dsp::ProcessSpec testOscSpec;
+    testOscSpec.maximumBlockSize = samplesPerBlock;
+    testOscSpec.sampleRate       = sampleRate;
+    testOscSpec.numChannels      = getTotalNumOutputChannels();
+    
+    testOsc.prepare( testOscSpec );
+    testOsc.setFrequency( 120.f );
+    
+    testOscGain.prepare( testOscSpec );
+    testOscGain.setGainDecibels( -6.f );
+    
+#endif
 }
 
 void Pfmcpp_project10AudioProcessor::releaseResources()
@@ -136,42 +150,22 @@ void Pfmcpp_project10AudioProcessor::processBlock (AudioBuffer<float>& buffer, M
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
+
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
-    {
-        auto* channelData = buffer.getWritePointer (channel);
-
-        // just here to make some white noise for testing!
-        for( int sample = 0; sample < buffer.getNumSamples(); ++sample )
-        {
-            float samp = r.nextFloat();
-            buffer.setSample( channel, sample, samp );
-        }
-        
-        
-        
-        // ..do something to the data...
-    }
+#if SINE_OSC_TEST
+    juce::dsp::AudioBlock<float> testAudioBlock{ buffer };
+    testOsc.process( juce::dsp::ProcessContextReplacing<float>(testAudioBlock) );
     
+    float db = JUCE_LIVE_CONSTANT(-6.f);
+    testOscGain.setGainDecibels( db );
+    testOscGain.process( juce::dsp::ProcessContextReplacing<float>(testAudioBlock) );
+#endif
 
     fifo.push( buffer );
     
     buffer.clear();
-    
 }
 
 //==============================================================================
