@@ -136,7 +136,14 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
 {
     if( processor.fifo.pull(buffer) )
     {
+
+        
         auto leftRMSLevel = buffer.getRMSLevel( 0, 0, buffer.getNumSamples() );
+        
+#if SINE_OSC_TEST
+        leftRMSLevel = buffer.getMagnitude( 0, 0, buffer.getNumSamples() );
+#endif
+        
         auto leftRMSdB    = juce::Decibels::gainToDecibels( leftRMSLevel );
         testMeter.update( leftRMSdB );
     }
