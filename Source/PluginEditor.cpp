@@ -27,7 +27,7 @@ void ValueHolder::timerCallback()
     if( juce::Time::currentTimeMillis() - peakTime > holdTime )
     {
         DBG( "timerCallback(): peakValue timed out!" );
-        currentValue = threshold;
+        resetCurrentValue();
     }
     
     DBG( "Current Time: " << juce::Time::currentTimeMillis() );
@@ -46,14 +46,15 @@ void ValueHolder::updateHeldValue(float input)
     if( input > threshold )
     {
         DBG( "updateHeldValue(): Input is over threshold!" );
-        currentValue = input;
+        
         peakTime = juce::Time::currentTimeMillis();
+        
+        if( input > currentValue )
+        {
+            currentValue = input;
+        }
     }
-    
-    else
-    {
-        resetCurrentValue();
-    }
+
 }
 
 void ValueHolder::setHoldTime(int ms)
