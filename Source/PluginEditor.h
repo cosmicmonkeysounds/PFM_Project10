@@ -50,6 +50,30 @@ private:
 //==============================================================================
 
 
+struct DecayingValueHolder : Timer
+{
+    DecayingValueHolder();
+    ~DecayingValueHolder() override;
+    
+    void timerCallback() override;
+    
+    void updateHeldValue(float);
+    void setDecayRate(float);
+    void setHoldTime(int);
+
+private:
+    
+    const int timerHz{10};
+    int exponent{1}, holdTime{50};
+    float currentValue{NEGATIVE_INFINITY_DB}, decayRateDB{24.f};
+    
+    juce::int64 elapsedTime = juce::Time::currentTimeMillis();
+};
+
+
+//==============================================================================
+
+
 struct Tick
 {
     int y{0};
@@ -70,8 +94,6 @@ public:
     void resized() override;
     
     void update(float);
-    
-    std::function<void(float)> onUpdate = nullptr;
     
     std::vector<Tick> ticks;
 
