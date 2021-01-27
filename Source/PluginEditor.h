@@ -71,13 +71,13 @@ public:
     
     void update(float);
     
+    std::function<void(float)> onUpdate = nullptr;
+    
     std::vector<Tick> ticks;
 
 private:
     
     float currentLevel{0.f};
-    
-    ValueHolder testValueHolder;
     
     const float dbStepSize = 6.f;
     const float numberOfSteps = (MAX_DB - NEGATIVE_INFINITY_DB) / dbStepSize;
@@ -110,6 +110,26 @@ private:
 //==============================================================================
 
 
+class TextMeter : public juce::Component
+{
+public:
+    
+    TextMeter() = default;
+    ~TextMeter() override = default;
+    
+    void paint(Graphics&) override;
+    void resized() override;
+    void update(float);
+
+private:
+    
+    const int decimalPlaces = 2;
+    float inputValue = NEGATIVE_INFINITY_DB;
+    ValueHolder valueHolder;
+    
+};
+
+
 class Pfmcpp_project10AudioProcessorEditor  : public AudioProcessorEditor, public Timer
 {
 public:
@@ -131,6 +151,7 @@ private:
     
     Meter testMeter;
     DB_Scale testScale;
+    TextMeter testTextMeter;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };
