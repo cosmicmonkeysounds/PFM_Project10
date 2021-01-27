@@ -23,16 +23,8 @@ ValueHolder::~ValueHolder()
 
 void ValueHolder::timerCallback()
 {
-        
     if( juce::Time::currentTimeMillis() - peakTime > holdTime )
-    {
-        DBG( "timerCallback(): peakValue timed out!" );
         resetCurrentValue();
-    }
-    
-    DBG( "Current Time: " << juce::Time::currentTimeMillis() );
-    DBG( "PeakTime:     " << peakTime );
-    
 }
 
 void ValueHolder::setThreshold(float newThreshold)
@@ -45,14 +37,9 @@ void ValueHolder::updateHeldValue(float input)
 
     if( input > threshold )
     {
-        DBG( "updateHeldValue(): Input is over threshold!" );
-        
         peakTime = juce::Time::currentTimeMillis();
-        
         if( input > currentValue )
-        {
             currentValue = input;
-        }
     }
 
 }
@@ -81,8 +68,6 @@ void Meter::paint( juce::Graphics& g )
     
     auto bounds = this->getLocalBounds();
     float heightOfWindow = bounds.getHeight();
-    
-    //DBG( "Painting meter with level: " << currentLevel );
     
     auto levelMappedHeight = jmap( currentLevel,
                                    NEGATIVE_INFINITY_DB, MAX_DB,
@@ -117,7 +102,10 @@ void Meter::resized()
 void Meter::update( float newLevel )
 {
     currentLevel = newLevel;
-    testValueHolder.updateHeldValue( currentLevel );
+    
+    if( onUpdate )
+        onUpdate( newLevel );
+    
     repaint();
 }
 
@@ -143,6 +131,48 @@ void DB_Scale::resized()
 //==============================================================================
 
 
+void TextMeter::paint( Graphics& g )
+{
+    g.setColour( juce::Colours::darkblue );
+    g.fillAll();
+    
+    juce::String valueString;
+    
+    if( valueHolder.isOverThreshold() )
+    {
+        valueString = juce::String( valueHolder.getCurrentValue(), decimalPlaces );
+        g.setColour( juce::Colours::hotpink );
+    }
+        
+    else
+    {
+        valueString = juce::String( inputValue, decimalPlaces );
+        g.setColour( juce::Colours::whitesmoke );
+    }
+        
+    auto r = getLocalBounds();
+    juce::Font f{juce::Font::getDefaultMonospacedFontName(), 13.f, juce::Font::FontStyleFlags::bold};
+    int xCentreOffset = r.getCentreX() - (f.getStringWidth(valueString)/2);
+    
+    g.setFont( f );
+    g.drawSingleLineText( valueString, xCentreOffset, r.getCentreY() );
+}
+
+void TextMeter::resized()
+{
+    
+}
+
+void TextMeter::update( float newValue )
+{
+    inputValue = newValue;
+    valueHolder.updateHeldValue( newValue );
+}
+
+
+//==============================================================================
+
+
 Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmcpp_project10AudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
 {
@@ -151,6 +181,12 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     
     addAndMakeVisible( testMeter );
     addAndMakeVisible( testScale );
+    addAndMakeVisible( testTextMeter );
+    
+    testMeter.onUpdate = [this] (float newValue)
+    {
+        testTextMeter.update( newValue );
+    };
     
     setSize (800, 640);
     
@@ -174,8 +210,16 @@ void Pfmcpp_project10AudioProcessorEditor::resized()
     
     testMeter.setBounds( bounds.getWidth()/2,
                          JUCE_LIVE_CONSTANT(75),
-                         30,
+                         50,
                          JUCE_LIVE_CONSTANT(bounds.getHeight()-150) );
+    
+    auto meterRect = testMeter.getBounds();
+    const int textBoxHeight = 40;
+
+    testTextMeter.setBounds( meterRect.getX(),
+                             meterRect.getY() - textBoxHeight,
+                             meterRect.getWidth(),
+                             textBoxHeight );
     
     testScale.ticks   = testMeter.ticks;
     testScale.yOffset = testMeter.getY();
@@ -198,4 +242,6 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
         auto leftRMSdB    = juce::Decibels::gainToDecibels( leftRMSLevel );
         testMeter.update( leftRMSdB );
     }
+    
+    testTextMeter.repaint();
 }
