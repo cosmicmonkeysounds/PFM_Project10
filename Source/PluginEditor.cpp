@@ -77,7 +77,12 @@ void DecayingValueHolder::timerCallback()
     
     if( juce::Time::currentTimeMillis() - elapsedTime > holdTime )
     {
-        float dx = (float)std::pow( decayRateDB, exponent );
+        if( decayRateDB < 1.f )
+            dx += decayRateDB;
+        
+        else
+            dx = (float)std::pow( decayRateDB, exponent );
+        
         currentValue -= dx;
         ++exponent;
         
@@ -85,6 +90,7 @@ void DecayingValueHolder::timerCallback()
         {
             currentValue = NEGATIVE_INFINITY_DB;
             exponent = 1;
+            dx = 0.f;
         }
     }
     
@@ -97,6 +103,7 @@ void DecayingValueHolder::updateHeldValue( float newValue )
         currentValue = newValue;
         elapsedTime = juce::Time::currentTimeMillis();
         exponent = 1;
+        dx = 0.f;
     }
 }
 
@@ -120,12 +127,20 @@ void Meter::paint( juce::Graphics& g )
     auto bounds = this->getLocalBounds();
     float heightOfWindow = bounds.getHeight();
     
-    auto levelMappedHeight = jmap( currentLevel,
-                                   NEGATIVE_INFINITY_DB, MAX_DB,
-                                   heightOfWindow, 0.f );
+    float levelMappedHeight = juce::jmap( currentLevel,
+                                          NEGATIVE_INFINITY_DB, MAX_DB,
+                                          heightOfWindow, 0.f );
     
-    g.setColour( Colours::pink );
+    g.setColour( juce::Colours::pink );
     g.fillRect( bounds.withHeight(heightOfWindow).withY(levelMappedHeight) );
+    
+    g.setColour( juce::Colours::white );
+    
+    float decayY = juce::jmap( decayingValueHolder.getCurrentValue(),
+                               NEGATIVE_INFINITY_DB, MAX_DB,
+                               heightOfWindow, 0.f );
+    
+    g.fillRect( getLocalBounds().withHeight(4).withY(decayY) );
 }
 
 void Meter::resized()
@@ -153,6 +168,7 @@ void Meter::resized()
 void Meter::update( float newLevel )
 {
     currentLevel = newLevel;
+    decayingValueHolder.updateHeldValue( newLevel );
     repaint();
 }
 
@@ -281,7 +297,6 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
         auto leftRMSdB    = juce::Decibels::gainToDecibels( leftRMSLevel );
         testMeter.update( leftRMSdB );
         testTextMeter.update( leftRMSdB );
-        decay.updateHeldValue( leftRMSdB );
     }
     
     testTextMeter.repaint();
