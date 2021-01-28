@@ -64,7 +64,7 @@ bool ValueHolder::isOverThreshold() const
 
 DecayingValueHolder::DecayingValueHolder()
 {
-    startTimer( timerHz );
+    startTimerHz( timerHz );
 }
 
 DecayingValueHolder::~DecayingValueHolder()
@@ -74,10 +74,11 @@ DecayingValueHolder::~DecayingValueHolder()
 
 void DecayingValueHolder::timerCallback()
 {
+    
     if( juce::Time::currentTimeMillis() - elapsedTime > holdTime )
     {
-        double dx = std::pow( decayRateDB * (1.f/(float)holdTime), exponent );
-        currentValue -= (float)dx;
+        float dx = (float)std::pow( decayRateDB, exponent );
+        currentValue -= dx;
         ++exponent;
         
         if( currentValue <= NEGATIVE_INFINITY_DB )
@@ -86,6 +87,7 @@ void DecayingValueHolder::timerCallback()
             exponent = 1;
         }
     }
+    
 }
 
 void DecayingValueHolder::updateHeldValue( float newValue )
@@ -94,12 +96,13 @@ void DecayingValueHolder::updateHeldValue( float newValue )
     {
         currentValue = newValue;
         elapsedTime = juce::Time::currentTimeMillis();
+        exponent = 1;
     }
 }
 
 void DecayingValueHolder::setDecayRate( float newRate )
 {
-    decayRateDB = newRate;
+    decayRateDB = newRate / (float)timerHz;
 }
 
 void DecayingValueHolder::setHoldTime( int newHoldTime )
@@ -278,6 +281,7 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
         auto leftRMSdB    = juce::Decibels::gainToDecibels( leftRMSLevel );
         testMeter.update( leftRMSdB );
         testTextMeter.update( leftRMSdB );
+        decay.updateHeldValue( leftRMSdB );
     }
     
     testTextMeter.repaint();

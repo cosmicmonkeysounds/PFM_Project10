@@ -64,8 +64,8 @@ struct DecayingValueHolder : Timer
 private:
     
     const int timerHz{10};
-    int exponent{1}, holdTime{50};
-    float currentValue{NEGATIVE_INFINITY_DB}, decayRateDB{24.f};
+    int exponent{1}, holdTime{250};
+    float currentValue{NEGATIVE_INFINITY_DB}, decayRateDB{ 12.f / (float)timerHz };
     
     juce::int64 elapsedTime = juce::Time::currentTimeMillis();
 };
@@ -174,6 +174,7 @@ private:
     Meter testMeter;
     DB_Scale testScale;
     TextMeter testTextMeter;
+    DecayingValueHolder decay;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };
