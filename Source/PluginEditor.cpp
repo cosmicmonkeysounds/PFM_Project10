@@ -10,6 +10,7 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include <cmath>
 
 ValueHolder::ValueHolder()
 {
@@ -61,6 +62,56 @@ bool ValueHolder::isOverThreshold() const
 
 //==============================================================================
 
+DecayingValueHolder::DecayingValueHolder()
+{
+    startTimerHz( timerHz );
+}
+
+DecayingValueHolder::~DecayingValueHolder()
+{
+    stopTimer();
+}
+
+void DecayingValueHolder::timerCallback()
+{
+    
+    if( juce::Time::currentTimeMillis() - elapsedTime > holdTime )
+    {
+        float dx = (float)std::pow( decayRateDB, exponent );
+        currentValue -= dx;
+        ++exponent;
+        
+        if( currentValue <= NEGATIVE_INFINITY_DB )
+        {
+            currentValue = NEGATIVE_INFINITY_DB;
+            exponent = 1;
+        }
+    }
+    
+}
+
+void DecayingValueHolder::updateHeldValue( float newValue )
+{
+    if( newValue > currentValue )
+    {
+        currentValue = newValue;
+        elapsedTime = juce::Time::currentTimeMillis();
+        exponent = 1;
+    }
+}
+
+void DecayingValueHolder::setDecayRate( float newRate )
+{
+    decayRateDB = newRate / (float)timerHz;
+}
+
+void DecayingValueHolder::setHoldTime( int newHoldTime )
+{
+    holdTime = newHoldTime;
+}
+
+//==============================================================================
+
 void Meter::paint( juce::Graphics& g )
 {
     
@@ -102,10 +153,6 @@ void Meter::resized()
 void Meter::update( float newLevel )
 {
     currentLevel = newLevel;
-    
-    if( onUpdate )
-        onUpdate( newLevel );
-    
     repaint();
 }
 
@@ -183,11 +230,6 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     addAndMakeVisible( testScale );
     addAndMakeVisible( testTextMeter );
     
-    testMeter.onUpdate = [this] (float newValue)
-    {
-        testTextMeter.update( newValue );
-    };
-    
     setSize (800, 640);
     
 }
@@ -216,16 +258,13 @@ void Pfmcpp_project10AudioProcessorEditor::resized()
     auto meterRect = testMeter.getBounds();
     const int textBoxHeight = 40;
 
-    testTextMeter.setBounds( meterRect.getX(),
-                             meterRect.getY() - textBoxHeight,
-                             meterRect.getWidth(),
-                             textBoxHeight );
+    testTextMeter.setBounds( meterRect.getX(), meterRect.getY() - textBoxHeight,
+                             meterRect.getWidth(), textBoxHeight );
     
     testScale.ticks   = testMeter.ticks;
     testScale.yOffset = testMeter.getY();
     
     testScale.setBounds( testMeter.getRight(), 0, 30, getHeight() );
- 
 }
 
 void Pfmcpp_project10AudioProcessorEditor::timerCallback()
@@ -241,7 +280,10 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
         
         auto leftRMSdB    = juce::Decibels::gainToDecibels( leftRMSLevel );
         testMeter.update( leftRMSdB );
+        testTextMeter.update( leftRMSdB );
+        decay.updateHeldValue( leftRMSdB );
     }
     
     testTextMeter.repaint();
+    
 }

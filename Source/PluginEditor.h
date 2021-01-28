@@ -50,6 +50,30 @@ private:
 //==============================================================================
 
 
+struct DecayingValueHolder : Timer
+{
+    DecayingValueHolder();
+    ~DecayingValueHolder() override;
+    
+    void timerCallback() override;
+    
+    void updateHeldValue(float);
+    void setDecayRate(float);
+    void setHoldTime(int);
+
+private:
+    
+    const int timerHz{10};
+    int exponent{1}, holdTime{250};
+    float currentValue{NEGATIVE_INFINITY_DB}, decayRateDB{ 12.f / (float)timerHz };
+    
+    juce::int64 elapsedTime = juce::Time::currentTimeMillis();
+};
+
+
+//==============================================================================
+
+
 struct Tick
 {
     int y{0};
@@ -70,8 +94,6 @@ public:
     void resized() override;
     
     void update(float);
-    
-    std::function<void(float)> onUpdate = nullptr;
     
     std::vector<Tick> ticks;
 
@@ -152,6 +174,7 @@ private:
     Meter testMeter;
     DB_Scale testScale;
     TextMeter testTextMeter;
+    DecayingValueHolder decay;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };
