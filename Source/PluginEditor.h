@@ -161,39 +161,11 @@ private:
 
 
 template<typename T>
-struct Averager : juce::Thread
+struct Averager
 {
-    Averager( size_t numElements, T initialValue = static_cast<T>(0) ) : Thread("Averager Thread")
+    Averager( size_t numElements, T initialValue = static_cast<T>(0) )
     {
-        startThread(8);
         resize( numElements, initialValue );
-    }
-    
-    ~Averager()
-    {
-        stopThread( 100 );
-        notify();
-    }
-    
-    void run() override
-    {
-        while( true )
-        {
-            wait(-1);
-            DBG("Thread awake!");
-            if( threadShouldExit() )
-                return;
-            
-            recalculateSum();
-            
-            if( threadShouldExit() )
-                return;
-            
-            average.store( (float)sumOfElements.load() / (float)getSize() );
-            
-            if( threadShouldExit() )
-                return;
-        }
     }
     
     void recalculateSum()
