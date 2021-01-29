@@ -16,7 +16,6 @@
 #define NEGATIVE_INFINITY_DB -66.f
 #define MAX_DB                12.f
 
-
 //==============================================================================
 
 
@@ -158,6 +157,113 @@ private:
 };
 
 
+//==============================================================================
+
+
+template<typename T>
+struct Averager : juce::Thread
+{
+    Averager( size_t numElements, T initialValue = static_cast<T>(0) ) : Thread("Averager Thread")
+    {
+        startThread(8);
+        resize( numElements, initialValue );
+    }
+    
+    ~Averager()
+    {
+        stopThread( 100 );
+        notify();
+    }
+    
+    void run() override
+    {
+        while( true )
+        {
+            wait(-1);
+            DBG("Thread awake!");
+            if( threadShouldExit() )
+                return;
+            
+            recalculateSum();
+            
+            if( threadShouldExit() )
+                return;
+            
+            average.store( (float)sumOfElements.load() / (float)getSize() );
+            
+            if( threadShouldExit() )
+                return;
+        }
+    }
+    
+    void recalculateSum()
+    {
+        T currSum = sumOfElements.load();
+        
+        int index = writeIndex.load() - 1 > 0 ? writeIndex.load() - 1 : 0;
+        
+        for( int i = index; i < getSize(); ++i )
+            currSum += elementsToAverage[i];
+        
+        sumOfElements.store( currSum );
+        //writeIndex.store( currWriteIndex );
+    }
+
+    void clear( T initialValue = static_cast<T>(0) )
+    {
+        for( auto& element : elementsToAverage )
+            element = initialValue;
+        
+        writeIndex.store(0);
+        sumOfElements.store(0);
+        
+        recalculateSum();
+        average.store( (float)sumOfElements / (float)getSize() );
+        //notify();
+    }
+    
+    void resize( size_t newSize, T initialValue )
+    {
+        elementsToAverage.resize( newSize );
+        clear( initialValue );
+    }
+
+    void add( T t )
+    {
+        int currWriteIndex = writeIndex.load();
+        
+        if( currWriteIndex >= getSize() )
+            elementsToAverage.push_back(t);
+        
+        else
+        {
+            //sumOfElements.store( sumOfElements.load() - elementsToAverage[currWriteIndex] );
+            elementsToAverage[currWriteIndex] = t;
+        }
+        
+        writeIndex.store( (currWriteIndex + 1) % (getSize() + 1) );
+        
+        recalculateSum();
+        average.store( (float)sumOfElements / (float)getSize() );
+        //notify();
+    }
+        
+    float getAverage() const { return average.load(); }
+    size_t getSize() const { return elementsToAverage.size(); }
+    
+private:
+    
+    std::vector<T> elementsToAverage;
+    std::atomic<int> writeIndex;
+    std::atomic<T> sumOfElements{ static_cast<T>(0) };
+    std::atomic<float> average{ static_cast<T>(0) };
+    
+};
+
+
+//==============================================================================
+
+
 class Pfmcpp_project10AudioProcessorEditor  : public AudioProcessorEditor, public Timer
 {
 public:
@@ -180,6 +286,8 @@ private:
     Meter testMeter;
     DB_Scale testScale;
     TextMeter testTextMeter;
+    
+    Averager<float> avg{ 5 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };
