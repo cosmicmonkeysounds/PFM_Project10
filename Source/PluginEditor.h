@@ -16,7 +16,6 @@
 #define NEGATIVE_INFINITY_DB -66.f
 #define MAX_DB                12.f
 
-
 //==============================================================================
 
 
@@ -158,6 +157,66 @@ private:
 };
 
 
+//==============================================================================
+
+
+template<typename T>
+struct Averager
+{
+    Averager( size_t numElements, T initialValue )
+    {
+        resize( numElements, initialValue );
+    }
+
+    void clear( T initialValue )
+    {
+        for( int i = 0; i < getSize(); ++i )
+            add( initialValue );
+        
+        writeIndex.store(0);
+        sumOfElements.store( initialValue * getSize() );
+        average.store( initialValue );
+    }
+    
+    void resize( size_t newSize, T initialValue )
+    {
+        elementsToAverage.resize( newSize );
+        clear( initialValue );
+    }
+
+    void add( T t )
+    {
+        T currSum = sumOfElements.load();
+        int currWriteIndex = writeIndex.load();
+        
+        currSum -= elementsToAverage[currWriteIndex];
+        currSum += t;
+        elementsToAverage[currWriteIndex] = t;
+        
+        if( ++currWriteIndex == getSize() )
+            currWriteIndex = 0;
+        
+        writeIndex.store( currWriteIndex );
+        sumOfElements.store( currSum );
+        average.store( (float)currSum / (float)getSize() );
+    }
+        
+    float getAverage() const { return average.load(); }
+    size_t getSize() const { return elementsToAverage.size(); }
+    
+private:
+    
+    std::vector<T> elementsToAverage;
+    std::atomic<T> sumOfElements{ static_cast<T>(0) };
+    std::atomic<int> writeIndex;
+    std::atomic<float> average{ 0.f };
+    
+};
+
+
+//==============================================================================
+
+
 class Pfmcpp_project10AudioProcessorEditor  : public AudioProcessorEditor, public Timer
 {
 public:
@@ -180,6 +239,8 @@ private:
     Meter testMeter;
     DB_Scale testScale;
     TextMeter testTextMeter;
+    
+    Averager<float> avg{ 5, 0.f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };

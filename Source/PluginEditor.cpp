@@ -246,6 +246,34 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     addAndMakeVisible( testScale );
     addAndMakeVisible( testTextMeter );
     
+//    avg.add( 10.f );
+//    DBG( avg.getAverage() );
+//    avg.add( 2.f );
+//    DBG( avg.getAverage() );
+//    avg.clear( 0.f );
+//    DBG( avg.getAverage() );
+//    avg.add( 10.f );
+//    DBG( avg.getAverage() );
+//    avg.add( 10.f );
+//    DBG( avg.getAverage() );
+//    avg.add( 10.f );
+//    DBG( avg.getAverage() );
+//    avg.add( 10.f );
+//    DBG( avg.getAverage() );
+//    avg.add( 10.f );
+//    DBG( avg.getAverage() );
+//    avg.add( 20.f );
+//    DBG( avg.getAverage() );
+//    avg.add( 20.f );
+//    DBG( avg.getAverage() );
+//    avg.add( 20.f );
+//    DBG( avg.getAverage() );
+//    avg.add( 20.f );
+//    DBG( avg.getAverage() );
+//    avg.add( 20.f );
+//    DBG( avg.getAverage() );
+//    avg.add( 20.f );
+    
     setSize (800, 640);
     
 }
