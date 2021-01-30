@@ -170,8 +170,8 @@ struct Averager
 
     void clear( T initialValue )
     {
-        for( int i = 0; i < getSize(); ++i )
-            add( initialValue );
+        for( auto& e : elementsToAverage )
+            e = 0;
         
         writeIndex.store(0);
         sumOfElements.store( initialValue * getSize() );
@@ -217,6 +217,31 @@ private:
 //==============================================================================
 
 
+struct MacroMeterWidget : juce::Component
+{
+    
+    MacroMeterWidget();
+
+    void paint(juce::Graphics&) override;
+    void resized() override;
+    
+    void update(float);
+    
+    std::vector<Tick> getTicks();
+    int getMeterY();
+    
+private:
+    
+    Meter instantMeter, averageMeter;
+    TextMeter textMeter;
+    Averager<float> averager;
+    
+};
+
+
+//==============================================================================
+
+
 class Pfmcpp_project10AudioProcessorEditor  : public AudioProcessorEditor, public Timer
 {
 public:
@@ -236,11 +261,8 @@ private:
     
     AudioBuffer<float> buffer;
     
-    Meter testMeter;
+    MacroMeterWidget testMacroMeter;
     DB_Scale testScale;
-    TextMeter testTextMeter;
-    
-    Averager<float> avg{ 5, 0.f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };

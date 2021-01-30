@@ -235,6 +235,60 @@ void TextMeter::update( float newValue )
 
 //==============================================================================
 
+MacroMeterWidget::MacroMeterWidget()
+    : averager( 10, 0.f )
+{
+    addAndMakeVisible( instantMeter );
+    addAndMakeVisible( averageMeter );
+    addAndMakeVisible( textMeter );
+}
+
+void MacroMeterWidget::paint( juce::Graphics& g )
+{
+    g.setColour( juce::Colours::black );
+    g.fillAll();
+}
+
+void MacroMeterWidget::resized()
+{
+    auto r = getLocalBounds();
+    
+    r = r.withSizeKeepingCentre( r.getWidth() * 0.9f,
+                                 r.getHeight() );
+    
+    const int textBoxHeight = 40;
+    textMeter.setBounds( r.removeFromTop(textBoxHeight) );
+    
+    const int innerPadding = 3;
+    const float instantMeterWidth = r.getWidth() * 0.75f;
+    
+    instantMeter.setBounds( r.removeFromLeft(instantMeterWidth) );
+    averageMeter.setBounds( r.withTrimmedLeft(innerPadding) );
+}
+
+void MacroMeterWidget::update( float newValue )
+{
+    instantMeter.update( newValue );
+    textMeter.update( newValue );
+    averager.add( newValue );
+    averageMeter.update( averager.getAverage() );
+}
+
+std::vector<Tick> MacroMeterWidget::getTicks()
+{
+    return instantMeter.ticks;
+}
+
+int MacroMeterWidget::getMeterY()
+{
+    int macroHeight = getBounds().getY();
+    int meterHeight = instantMeter.getBounds().getY();
+    return macroHeight + meterHeight;
+}
+
+
+//==============================================================================
+
 
 Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmcpp_project10AudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
@@ -242,37 +296,8 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     
     startTimerHz( 20 );
     
-    addAndMakeVisible( testMeter );
+    addAndMakeVisible( testMacroMeter );
     addAndMakeVisible( testScale );
-    addAndMakeVisible( testTextMeter );
-    
-//    avg.add( 10.f );
-//    DBG( avg.getAverage() );
-//    avg.add( 2.f );
-//    DBG( avg.getAverage() );
-//    avg.clear( 0.f );
-//    DBG( avg.getAverage() );
-//    avg.add( 10.f );
-//    DBG( avg.getAverage() );
-//    avg.add( 10.f );
-//    DBG( avg.getAverage() );
-//    avg.add( 10.f );
-//    DBG( avg.getAverage() );
-//    avg.add( 10.f );
-//    DBG( avg.getAverage() );
-//    avg.add( 10.f );
-//    DBG( avg.getAverage() );
-//    avg.add( 20.f );
-//    DBG( avg.getAverage() );
-//    avg.add( 20.f );
-//    DBG( avg.getAverage() );
-//    avg.add( 20.f );
-//    DBG( avg.getAverage() );
-//    avg.add( 20.f );
-//    DBG( avg.getAverage() );
-//    avg.add( 20.f );
-//    DBG( avg.getAverage() );
-//    avg.add( 20.f );
     
     setSize (800, 640);
     
@@ -294,21 +319,21 @@ void Pfmcpp_project10AudioProcessorEditor::resized()
     
     auto bounds = getBounds();
     
-    testMeter.setBounds( bounds.getWidth()/2,
-                         JUCE_LIVE_CONSTANT(75),
-                         50,
-                         JUCE_LIVE_CONSTANT(bounds.getHeight()-150) );
+    testMacroMeter.setBounds( bounds.getWidth()/2,
+                              JUCE_LIVE_CONSTANT(75),
+                              50,
+                              JUCE_LIVE_CONSTANT(bounds.getHeight()-150) );
     
-    auto meterRect = testMeter.getBounds();
-    const int textBoxHeight = 40;
 
-    testTextMeter.setBounds( meterRect.getX(), meterRect.getY() - textBoxHeight,
-                             meterRect.getWidth(), textBoxHeight );
     
-    testScale.ticks   = testMeter.ticks;
-    testScale.yOffset = testMeter.getY();
+    testScale.ticks   = testMacroMeter.getTicks();
+    testScale.yOffset = testMacroMeter.getMeterY();
     
-    testScale.setBounds( testMeter.getRight(), 0, 30, getHeight() );
+    testScale.setBounds( testMacroMeter.getRight(),
+                         0,
+                         30,
+                         getHeight() );
+    
 }
 
 void Pfmcpp_project10AudioProcessorEditor::timerCallback()
@@ -323,10 +348,10 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
 #endif
         
         auto leftRMSdB    = juce::Decibels::gainToDecibels( leftRMSLevel );
-        testMeter.update( leftRMSdB );
-        testTextMeter.update( leftRMSdB );
+        
+        testMacroMeter.update( leftRMSdB );
     }
     
-    testTextMeter.repaint();
+    testMacroMeter.repaint();
     
 }
