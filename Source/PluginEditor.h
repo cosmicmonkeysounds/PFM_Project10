@@ -192,7 +192,9 @@ struct Averager
         currSum -= elementsToAverage[currWriteIndex];
         currSum += t;
         elementsToAverage[currWriteIndex] = t;
-        ++currWriteIndex %= getSize();
+        
+        if( ++currWriteIndex == getSize() )
+            currWriteIndex = 0;
         
         writeIndex.store( currWriteIndex );
         sumOfElements.store( currSum );
