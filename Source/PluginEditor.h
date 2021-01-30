@@ -163,35 +163,19 @@ private:
 template<typename T>
 struct Averager
 {
-    Averager( size_t numElements, T initialValue = static_cast<T>(0) )
+    Averager( size_t numElements, T initialValue )
     {
         resize( numElements, initialValue );
     }
-    
-    void recalculateSum()
-    {
-        T currSum = sumOfElements.load();
-        
-        int index = writeIndex.load() - 1 > 0 ? writeIndex.load() - 1 : 0;
-        
-        for( int i = index; i < getSize(); ++i )
-            currSum += elementsToAverage[i];
-        
-        sumOfElements.store( currSum );
-        //writeIndex.store( currWriteIndex );
-    }
 
-    void clear( T initialValue = static_cast<T>(0) )
+    void clear( T initialValue )
     {
-        for( auto& element : elementsToAverage )
-            element = initialValue;
+        for( int i = 0; i < getSize(); ++i )
+            add( initialValue );
         
         writeIndex.store(0);
-        sumOfElements.store(0);
-        
-        recalculateSum();
-        average.store( (float)sumOfElements / (float)getSize() );
-        //notify();
+        sumOfElements.store( initialValue * getSize() );
+        average.store( initialValue );
     }
     
     void resize( size_t newSize, T initialValue )
@@ -202,22 +186,17 @@ struct Averager
 
     void add( T t )
     {
+        T currSum = sumOfElements.load();
         int currWriteIndex = writeIndex.load();
         
-        if( currWriteIndex >= getSize() )
-            elementsToAverage.push_back(t);
+        currSum -= elementsToAverage[currWriteIndex];
+        currSum += t;
+        elementsToAverage[currWriteIndex] = t;
+        ++currWriteIndex %= getSize();
         
-        else
-        {
-            //sumOfElements.store( sumOfElements.load() - elementsToAverage[currWriteIndex] );
-            elementsToAverage[currWriteIndex] = t;
-        }
-        
-        writeIndex.store( (currWriteIndex + 1) % (getSize() + 1) );
-        
-        recalculateSum();
-        average.store( (float)sumOfElements / (float)getSize() );
-        //notify();
+        writeIndex.store( currWriteIndex );
+        sumOfElements.store( currSum );
+        average.store( (float)currSum / (float)getSize() );
     }
         
     float getAverage() const { return average.load(); }
@@ -226,9 +205,9 @@ struct Averager
 private:
     
     std::vector<T> elementsToAverage;
-    std::atomic<int> writeIndex;
     std::atomic<T> sumOfElements{ static_cast<T>(0) };
-    std::atomic<float> average{ static_cast<T>(0) };
+    std::atomic<int> writeIndex;
+    std::atomic<float> average{ 0.f };
     
 };
 
@@ -259,7 +238,7 @@ private:
     DB_Scale testScale;
     TextMeter testTextMeter;
     
-    Averager<float> avg{ 5 };
+    Averager<float> avg{ 5, 0.f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };
