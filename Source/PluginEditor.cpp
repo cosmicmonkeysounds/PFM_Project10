@@ -290,17 +290,79 @@ int MacroMeterWidget::getMeterY()
 //==============================================================================
 
 
+StereoMeterLabel::StereoMeterLabel( juce::String n ) : name(n) {}
+
+void StereoMeterLabel::paint( juce::Graphics& g )
+{
+    g.setColour( juce::Colours::white );
+    g.drawText( "L", leftArea, juce::Justification::centred );
+    g.drawText( name, middleArea, juce::Justification::centred );
+    g.drawText( "R", rightArea, juce::Justification::centred );
+}
+
+void StereoMeterLabel::resized()
+{
+    auto r = getLocalBounds();
+    middleArea = r;
+    leftArea   = r.removeFromLeft(areaWidth);
+    rightArea  = r.removeFromRight(areaWidth);
+}
+
+//==============================================================================
+
+
+StereoMeterWidget::StereoMeterWidget( juce::String l ) : label(l)
+{
+    addAndMakeVisible( leftMeterWidget );
+    addAndMakeVisible( rightMeterWidget );
+    addAndMakeVisible( dbScale );
+    addAndMakeVisible( label );
+}
+
+void StereoMeterWidget::paint( juce::Graphics& g )
+{
+    g.setColour( juce::Colours::black );
+    g.fillAll();
+}
+
+void StereoMeterWidget::resized()
+{
+    auto r = getLocalBounds();
+    int meterWidth = r.getWidth() / 3;
+    
+    label.areaWidth = meterWidth;
+    label.setBounds( r.removeFromBottom(30) );
+    
+    leftMeterWidget.setBounds( r.removeFromLeft(meterWidth) );
+    
+    dbScale.ticks   = leftMeterWidget.getTicks();
+    dbScale.yOffset = leftMeterWidget.getMeterY();
+    
+    dbScale.setBounds( r.removeFromLeft(meterWidth)
+                        .withHeight(getHeight()) );
+    
+    rightMeterWidget.setBounds( r );
+}
+
+void StereoMeterWidget::update( float newLeftValue, float newRightValue )
+{
+    leftMeterWidget.update( newLeftValue );
+    rightMeterWidget.update( newRightValue );
+}
+
+
+//==============================================================================
+
+
 Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmcpp_project10AudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
 {
-    
     startTimerHz( 20 );
     
-    addAndMakeVisible( testMacroMeter );
-    addAndMakeVisible( testScale );
+    addAndMakeVisible( rmsWidget );
+    addAndMakeVisible( peakWidget );
     
     setSize (800, 640);
-    
 }
 
 Pfmcpp_project10AudioProcessorEditor::~Pfmcpp_project10AudioProcessorEditor()
@@ -316,24 +378,13 @@ void Pfmcpp_project10AudioProcessorEditor::paint (Graphics& g)
 
 void Pfmcpp_project10AudioProcessorEditor::resized()
 {
+    auto r = getBounds().translated(50, -50)
+                        .withSizeKeepingCentre(getWidth(), getHeight() * 0.7);
     
-    auto bounds = getBounds();
+    rmsWidget.setBounds( r.removeFromLeft(150) );
     
-    testMacroMeter.setBounds( bounds.getWidth()/2,
-                              JUCE_LIVE_CONSTANT(75),
-                              50,
-                              JUCE_LIVE_CONSTANT(bounds.getHeight()-150) );
-    
-
-    
-    testScale.ticks   = testMacroMeter.getTicks();
-    testScale.yOffset = testMacroMeter.getMeterY();
-    
-    testScale.setBounds( testMacroMeter.getRight(),
-                         0,
-                         30,
-                         getHeight() );
-    
+    peakWidget.setBounds( r.removeFromLeft(150)
+                           .translated(50, 0) );
 }
 
 void Pfmcpp_project10AudioProcessorEditor::timerCallback()
@@ -341,17 +392,26 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
     if( processor.fifo.pull(buffer) )
     {
 
-        auto leftRMSLevel = buffer.getRMSLevel( 0, 0, buffer.getNumSamples() );
+        int numSamples = buffer.getNumSamples();
         
-#if SINE_OSC_TEST
-        leftRMSLevel = buffer.getMagnitude( 0, 0, buffer.getNumSamples() );
-#endif
+        auto leftRMSLevel  = buffer.getRMSLevel( 0, 0, numSamples );
+        auto rightRMSLevel = buffer.getRMSLevel( 1, 0, numSamples );
         
         auto leftRMSdB    = juce::Decibels::gainToDecibels( leftRMSLevel );
+        auto rightRMSdB   = juce::Decibels::gainToDecibels( rightRMSLevel );
         
-        testMacroMeter.update( leftRMSdB );
+        rmsWidget.update( leftRMSdB, rightRMSdB );
+        
+        auto leftMagnitudeLevel  = buffer.getMagnitude( 0, 0, numSamples );
+        auto rightMagnitudeLevel = buffer.getMagnitude( 1, 0, numSamples );
+        
+        auto leftMagnitudeDB  = juce::Decibels::gainToDecibels( leftMagnitudeLevel );
+        auto rightMagnitudeDB = juce::Decibels::gainToDecibels( rightMagnitudeLevel );
+        
+        peakWidget.update( leftMagnitudeDB, rightMagnitudeDB );
+        
     }
     
-    testMacroMeter.repaint();
-    
+    rmsWidget.repaint();
+    peakWidget.repaint();
 }
