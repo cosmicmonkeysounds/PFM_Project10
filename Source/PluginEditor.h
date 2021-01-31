@@ -170,9 +170,7 @@ struct Averager
 
     void clear( T initialValue )
     {
-        for( auto& e : elementsToAverage )
-            e = 0;
-        
+        elementsToAverage.assign( getSize(), initialValue );
         writeIndex.store(0);
         sumOfElements.store( initialValue * getSize() );
         average.store( initialValue );
@@ -180,6 +178,7 @@ struct Averager
     
     void resize( size_t newSize, T initialValue )
     {
+        elementsToAverage.clear(); // do I need this if I'm also using std::vector::assign in the clear function?
         elementsToAverage.resize( newSize );
         clear( initialValue );
     }
