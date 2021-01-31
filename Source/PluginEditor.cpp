@@ -286,28 +286,6 @@ int MacroMeterWidget::getMeterY()
     return macroHeight + meterHeight;
 }
 
-
-//==============================================================================
-
-
-StereoMeterLabel::StereoMeterLabel( juce::String n ) : name(n) {}
-
-void StereoMeterLabel::paint( juce::Graphics& g )
-{
-    g.setColour( juce::Colours::white );
-    g.drawText( "L", leftArea, juce::Justification::centred );
-    g.drawText( name, middleArea, juce::Justification::centred );
-    g.drawText( "R", rightArea, juce::Justification::centred );
-}
-
-void StereoMeterLabel::resized()
-{
-    auto r = getLocalBounds();
-    middleArea = r;
-    leftArea   = r.removeFromLeft(areaWidth);
-    rightArea  = r.removeFromRight(areaWidth);
-}
-
 //==============================================================================
 
 
@@ -316,22 +294,30 @@ StereoMeterWidget::StereoMeterWidget( juce::String l ) : label(l)
     addAndMakeVisible( leftMeterWidget );
     addAndMakeVisible( rightMeterWidget );
     addAndMakeVisible( dbScale );
-    addAndMakeVisible( label );
 }
 
 void StereoMeterWidget::paint( juce::Graphics& g )
 {
     g.setColour( juce::Colours::black );
     g.fillAll();
+    
+    g.setColour( juce::Colours::white );
+    {
+        typedef juce::Justification j;
+        g.drawText( "L",   labelArea, j::centredLeft );
+        g.drawText( label, labelArea, j::centred );
+        g.drawText( "R",   labelArea, j::centredRight );
+    }
 }
 
 void StereoMeterWidget::resized()
 {
     auto r = getLocalBounds();
-    int meterWidth = r.getWidth() / 3;
+    const int labelHeight = 30;
+    const int meterWidth = r.getWidth() / 3;
     
-    label.areaWidth = meterWidth;
-    label.setBounds( r.removeFromBottom(30) );
+    labelArea = r.removeFromBottom( labelHeight )
+                 .withSizeKeepingCentre( r.getWidth() - meterWidth, labelHeight );
     
     leftMeterWidget.setBounds( r.removeFromLeft(meterWidth) );
     

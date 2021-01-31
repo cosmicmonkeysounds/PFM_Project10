@@ -240,24 +240,6 @@ private:
 //==============================================================================
 
 
-struct StereoMeterLabel : juce::Component
-{
-    StereoMeterLabel(juce::String);
-    
-    void paint(juce::Graphics&) override;
-    void resized() override;
-    
-    int areaWidth{0};
-    
-private:
-    juce::String name;
-    juce::Rectangle<int> leftArea, middleArea, rightArea;
-};
-
-
-//==============================================================================
-
-
 struct StereoMeterWidget : juce::Component
 {
     StereoMeterWidget(juce::String);
@@ -270,7 +252,8 @@ struct StereoMeterWidget : juce::Component
 private:
     MacroMeterWidget leftMeterWidget, rightMeterWidget;
     DB_Scale dbScale;
-    StereoMeterLabel label;
+    juce::Rectangle<int> labelArea;
+    juce::String label;
 };
 
 
