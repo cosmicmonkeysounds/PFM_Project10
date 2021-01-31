@@ -170,9 +170,7 @@ struct Averager
 
     void clear( T initialValue )
     {
-        for( int i = 0; i < getSize(); ++i )
-            add( initialValue );
-        
+        elementsToAverage.assign( getSize(), initialValue );
         writeIndex.store(0);
         sumOfElements.store( initialValue * getSize() );
         average.store( initialValue );
@@ -180,6 +178,7 @@ struct Averager
     
     void resize( size_t newSize, T initialValue )
     {
+        elementsToAverage.clear(); // do I need this if I'm also using std::vector::assign in the clear function?
         elementsToAverage.resize( newSize );
         clear( initialValue );
     }
@@ -217,6 +216,31 @@ private:
 //==============================================================================
 
 
+struct MacroMeterWidget : juce::Component
+{
+    
+    MacroMeterWidget();
+
+    void paint(juce::Graphics&) override;
+    void resized() override;
+    
+    void update(float);
+    
+    std::vector<Tick> getTicks();
+    int getMeterY();
+    
+private:
+    
+    Meter instantMeter, averageMeter;
+    TextMeter textMeter;
+    Averager<float> averager;
+    
+};
+
+
+//==============================================================================
+
+
 class Pfmcpp_project10AudioProcessorEditor  : public AudioProcessorEditor, public Timer
 {
 public:
@@ -236,11 +260,8 @@ private:
     
     AudioBuffer<float> buffer;
     
-    Meter testMeter;
+    MacroMeterWidget testMacroMeter;
     DB_Scale testScale;
-    TextMeter testTextMeter;
-    
-    Averager<float> avg{ 5, 0.f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };
