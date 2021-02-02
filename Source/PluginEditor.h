@@ -279,39 +279,34 @@ struct CircularBuffer
     void clear( T fillValue )
     {
         dataHolder.assign( getSize(), fillValue );
-        writeIndex = 0;
-        readIndex  = getSize() - 1;
+        writeIndex.store(0);
     }
     
     void write( T itemToAdd )
     {
-        dataHolder[writeIndex] = itemToAdd;
+        std::size_t writeInd = writeIndex.load();
+        dataHolder[writeInd] = itemToAdd;
         
-        if( ++writeIndex >= getSize() )
-            writeIndex = 0;
+        if( ++writeInd >= getSize() )
+            writeInd = 0;
         
-        if( writeIndex == readIndex )
-            if( ++readIndex >= getSize() )
-                readIndex = 0;
-    }
-    
-    void print()
-    {
-        juce::String str{""};
-        for( auto& data : dataHolder )
-            str += juce::String(data) + " ";
-        DBG(str);
-        DBG( "///////////////" );
-        DBG( "" );
+        writeIndex.store( writeInd );
     }
     
     DataType& getData() { return dataHolder; }
-    int getReadIndex() const { return readIndex; }
-    int getSize() const { return dataHolder.size(); }
+    std::size_t getSize() const { return dataHolder.size(); }
+    
+    std::size_t getReadIndex() const
+    {
+        std::size_t readIndex =  writeIndex.load() + 1;
+        if( readIndex >= getSize() )
+            readIndex = 0;
+        return readIndex;
+    }
     
 private:
     DataType dataHolder;
-    int writeIndex, readIndex;
+    std::atomic<std::size_t> writeIndex;
 };
 
 
