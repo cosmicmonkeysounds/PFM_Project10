@@ -260,6 +260,64 @@ private:
 //==============================================================================
 
 
+template <typename T>
+struct CircularBuffer
+{
+    using DataType = std::vector<T>;
+    
+    CircularBuffer( std::size_t newSize, T fillValue )
+    {
+        resize( newSize, fillValue );
+    }
+    
+    void resize( std::size_t newSize, T fillValue )
+    {
+        dataHolder.resize( newSize );
+        clear( fillValue );
+    }
+    
+    void clear( T fillValue )
+    {
+        dataHolder.assign( getSize(), fillValue );
+        writeIndex = 0;
+        readIndex  = getSize() - 1;
+    }
+    
+    void write( T itemToAdd )
+    {
+        dataHolder[writeIndex] = itemToAdd;
+        
+        if( ++writeIndex >= getSize() )
+            writeIndex = 0;
+        
+        if( writeIndex == readIndex )
+            if( ++readIndex >= getSize() )
+                readIndex = 0;
+    }
+    
+    void print()
+    {
+        juce::String str{""};
+        for( auto& data : dataHolder )
+            str += juce::String(data) + " ";
+        DBG(str);
+        DBG( "///////////////" );
+        DBG( "" );
+    }
+    
+    DataType& getData() { return dataHolder; }
+    int getReadIndex() const { return readIndex; }
+    int getSize() const { return dataHolder.size(); }
+    
+private:
+    DataType dataHolder;
+    int writeIndex, readIndex;
+};
+
+
+//==============================================================================
+
+
 class Pfmcpp_project10AudioProcessorEditor  : public AudioProcessorEditor, public Timer
 {
 public:
