@@ -303,7 +303,7 @@ void StereoMeterWidget::paint( juce::Graphics& g )
     
     g.setColour( juce::Colours::white );
     {
-        typedef juce::Justification j;
+        using j = juce::Justification;
         g.drawText( "L",   labelArea, j::centredLeft );
         g.drawText( label, labelArea, j::centred );
         g.drawText( "R",   labelArea, j::centredRight );
@@ -395,7 +395,6 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
         auto rightMagnitudeDB = juce::Decibels::gainToDecibels( rightMagnitudeLevel );
         
         peakWidget.update( leftMagnitudeDB, rightMagnitudeDB );
-        
     }
     
     rmsWidget.repaint();
