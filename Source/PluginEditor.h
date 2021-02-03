@@ -295,14 +295,7 @@ struct CircularBuffer
     
     DataType& getData() { return dataHolder; }
     std::size_t getSize() const { return dataHolder.size(); }
-    
-    std::size_t getReadIndex() const
-    {
-        std::size_t readIndex =  writeIndex.load() + 1;
-        if( readIndex >= getSize() )
-            readIndex = 0;
-        return readIndex;
-    }
+    std::size_t getReadIndex() const { return writeIndex.load(); }
     
 private:
     DataType dataHolder;
