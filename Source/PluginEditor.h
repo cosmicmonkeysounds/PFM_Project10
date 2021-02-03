@@ -287,7 +287,8 @@ struct CircularBuffer
         std::size_t writeInd = writeIndex.load();
         dataHolder[writeInd] = itemToAdd;
         
-        if( ++writeInd >= getSize() )
+        ++writeInd;
+        if( writeInd > getSize() - 1 )
             writeInd = 0;
         
         writeIndex.store( writeInd );
