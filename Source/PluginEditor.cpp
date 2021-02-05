@@ -334,6 +334,97 @@ void StereoMeterWidget::update( float newLeftValue, float newRightValue )
 {
     leftMeterWidget.update( newLeftValue );
     rightMeterWidget.update( newRightValue );
+    repaint();
+}
+
+
+//==============================================================================
+
+
+HistogramDisplay::HistogramDisplay( std::size_t bufferSize ) : buffer( bufferSize, NEGATIVE_INFINITY_DB )
+{
+    
+}
+
+void HistogramDisplay::paint( juce::Graphics& g )
+{
+    g.setColour( juce::Colours::black );
+    g.fillAll();
+    
+    auto& yData = buffer.getData();
+    std::size_t readIndex = buffer.getReadIndex();
+    std::size_t size = buffer.getSize();
+    float x = 0.f;
+    float xStep = (float)getLocalBounds().getWidth() / (float)size;
+    
+    float minY = (float)getLocalBounds().getHeight();
+    float maxY = 10.f;
+    
+    Path path;
+    
+    path.startNewSubPath( -5.f, minY + 5.f );
+    
+    for( int i = 0; i < size; ++i )
+    {
+        
+        float yPos = juce::jmap( yData[readIndex],
+                                 NEGATIVE_INFINITY_DB, MAX_DB,
+                                 minY, maxY );
+        
+        path.lineTo( x, yPos);
+        
+        if( ++readIndex > size - 1 )
+            readIndex = 0;
+        
+        x += xStep;
+    }
+    
+    path.lineTo( (float)getLocalBounds().getWidth() + 5.f, minY + 5.f );
+    path.closeSubPath();
+    
+    g.setColour( juce::Colours::white );
+    g.strokePath( path, juce::PathStrokeType{1.5f} );
+    
+    juce::Colour green{ juce::Colours::green.withMultipliedAlpha(0.75f) };
+    
+    // unsure how to "append" these to the gradient
+    juce::Colour yellow{ juce::Colours::yellow.withMultipliedAlpha(0.75f) };
+    juce::Colour red{ juce::Colours::red.withMultipliedAlpha(0.75f) };
+    
+    juce::ColourGradient gradient = juce::ColourGradient::vertical( green, minY,
+                                                                    green.darker(), juce::jmap(-12.f,
+                                                                                               NEGATIVE_INFINITY_DB, MAX_DB,
+                                                                                               minY, maxY) );
+    
+    
+    g.setGradientFill( gradient );
+    g.fillPath( path );
+
+}
+
+void HistogramDisplay::resized()
+{
+    
+}
+
+void HistogramDisplay::update( float newValue )
+{
+    buffer.write( newValue );
+    repaint();
+}
+
+
+//==============================================================================
+
+
+void HistogramWidget::paint( juce::Graphics& g )
+{
+    
+}
+
+void HistogramWidget::resized()
+{
+    
 }
 
 
@@ -347,6 +438,7 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     
     addAndMakeVisible( rmsWidget );
     addAndMakeVisible( peakWidget );
+    addAndMakeVisible( rmsHistogram );
     
     setSize (800, 640);
 }
@@ -371,6 +463,9 @@ void Pfmcpp_project10AudioProcessorEditor::resized()
     
     peakWidget.setBounds( r.removeFromLeft(150)
                            .translated(50, 0) );
+    
+    rmsHistogram.setBounds( r.removeFromRight(425)
+                             .removeFromBottom(225) );
 }
 
 void Pfmcpp_project10AudioProcessorEditor::timerCallback()
@@ -395,8 +490,17 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
         auto rightMagnitudeDB = juce::Decibels::gainToDecibels( rightMagnitudeLevel );
         
         peakWidget.update( leftMagnitudeDB, rightMagnitudeDB );
+        
+        //=================================================================================
+        
+        // takes the average of both channels and stores it in channel 0 of the graphics buffer
+        buffer.addFrom( 0, 0, buffer, 1, 0, numSamples, 0.5f );
+        
+        auto averageRMSLevel = buffer.getRMSLevel( 0, 0, numSamples );
+        auto averageRMSdB    = juce::Decibels::gainToDecibels( averageRMSLevel );
+        
+        rmsHistogram.update( averageRMSdB );
+        
     }
     
-    rmsWidget.repaint();
-    peakWidget.repaint();
 }
