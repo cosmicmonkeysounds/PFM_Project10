@@ -308,7 +308,7 @@ private:
 
 struct HistogramDisplay : juce::Component
 {
-    HistogramDisplay(std::size_t);
+    HistogramDisplay(std::size_t, juce::String);
     
     void paint(juce::Graphics&) override;
     void resized() override;
@@ -317,6 +317,7 @@ struct HistogramDisplay : juce::Component
 
 private:
     CircularBuffer<float> buffer;
+    juce::String label;
 };
 
 
@@ -325,8 +326,16 @@ private:
 
 struct HistogramWidget : juce::Component
 {
+    HistogramWidget();
+    
     void paint(juce::Graphics&) override;
     void resized() override;
+    
+    void update(float, float);
+    
+private:
+    const std::size_t bufferSize{64};
+    HistogramDisplay rmsDisplay{bufferSize, "RMS"}, peakDisplay{bufferSize, "PEAK"};
 };
 
 
@@ -353,7 +362,7 @@ private:
     AudioBuffer<float> buffer;
     
     StereoMeterWidget rmsWidget{"RMS"}, peakWidget{"PEAK"};
-    HistogramDisplay rmsHistogram{64};
+    HistogramWidget histogramDisplays;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };

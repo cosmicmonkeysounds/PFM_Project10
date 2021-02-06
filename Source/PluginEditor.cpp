@@ -341,7 +341,8 @@ void StereoMeterWidget::update( float newLeftValue, float newRightValue )
 //==============================================================================
 
 
-HistogramDisplay::HistogramDisplay( std::size_t bufferSize ) : buffer( bufferSize, NEGATIVE_INFINITY_DB )
+HistogramDisplay::HistogramDisplay( std::size_t bufferSize, juce::String l )
+    : buffer( bufferSize, NEGATIVE_INFINITY_DB ), label(l)
 {
     
 }
@@ -359,17 +360,18 @@ void HistogramDisplay::paint( juce::Graphics& g )
     
     float minY = (float)getLocalBounds().getHeight();
     float maxY = 10.f;
+    float yPos = 0.f;
     
     Path path;
     
-    path.startNewSubPath( -5.f, minY + 5.f );
+    path.startNewSubPath( -2.f, minY + 5.f );
     
     for( int i = 0; i < size; ++i )
     {
         
-        float yPos = juce::jmap( yData[readIndex],
-                                 NEGATIVE_INFINITY_DB, MAX_DB,
-                                 minY, maxY );
+        yPos = juce::jmap( yData[readIndex],
+                           NEGATIVE_INFINITY_DB, MAX_DB,
+                           minY, maxY );
         
         path.lineTo( x, yPos);
         
@@ -379,7 +381,10 @@ void HistogramDisplay::paint( juce::Graphics& g )
         x += xStep;
     }
     
-    path.lineTo( (float)getLocalBounds().getWidth() + 5.f, minY + 5.f );
+    float endX = (float)getLocalBounds().getWidth() + 2.f;
+    path.lineTo( endX, yPos );
+    path.lineTo( endX, minY + 2.f );
+    
     path.closeSubPath();
     
     g.setColour( juce::Colours::white );
@@ -396,9 +401,12 @@ void HistogramDisplay::paint( juce::Graphics& g )
                                                                                                NEGATIVE_INFINITY_DB, MAX_DB,
                                                                                                minY, maxY) );
     
-    
     g.setGradientFill( gradient );
     g.fillPath( path );
+    
+    g.setColour( juce::Colours::white );
+    g.setFont( 16.f );
+    g.drawText( label, getLocalBounds().removeFromBottom(20), juce::Justification::centred );
 
 }
 
@@ -417,14 +425,33 @@ void HistogramDisplay::update( float newValue )
 //==============================================================================
 
 
+HistogramWidget::HistogramWidget()
+{
+    addAndMakeVisible( rmsDisplay );
+    addAndMakeVisible( peakDisplay );
+}
+
 void HistogramWidget::paint( juce::Graphics& g )
 {
-    
+    g.setColour( juce::Colours::black );
+    g.fillAll();
 }
 
 void HistogramWidget::resized()
 {
+    auto r = getLocalBounds();
+    const int halfWidth = r.getWidth() / 2;
+    const int padding = 10;
     
+    rmsDisplay.setBounds( r.removeFromLeft(halfWidth).reduced(padding) );
+    peakDisplay.setBounds( r.reduced(padding) );
+}
+
+void HistogramWidget::update( float rms, float peak )
+{
+    rmsDisplay.update( rms );
+    peakDisplay.update( peak );
+    repaint();
 }
 
 
@@ -438,7 +465,7 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     
     addAndMakeVisible( rmsWidget );
     addAndMakeVisible( peakWidget );
-    addAndMakeVisible( rmsHistogram );
+    addAndMakeVisible( histogramDisplays );
     
     setSize (800, 640);
 }
@@ -448,24 +475,25 @@ Pfmcpp_project10AudioProcessorEditor::~Pfmcpp_project10AudioProcessorEditor()
     stopTimer();
 }
 
-//==============================================================================
 void Pfmcpp_project10AudioProcessorEditor::paint (Graphics& g)
 {
-
+    g.setColour( juce::Colours::ivory );
+    g.fillAll();
 }
 
 void Pfmcpp_project10AudioProcessorEditor::resized()
 {
-    auto r = getBounds().translated(50, -50)
-                        .withSizeKeepingCentre(getWidth(), getHeight() * 0.7);
+    auto r = getLocalBounds().withSizeKeepingCentre(getWidth() * 0.95, getHeight() * 0.95);
+    const int padding = 10;
     
-    rmsWidget.setBounds( r.removeFromLeft(150) );
+    auto meterBounds = r.removeFromTop(r.getHeight()/2).reduced(0, padding);
     
-    peakWidget.setBounds( r.removeFromLeft(150)
-                           .translated(50, 0) );
+    rmsWidget.setBounds(meterBounds.removeFromLeft(150));
     
-    rmsHistogram.setBounds( r.removeFromRight(425)
-                             .removeFromBottom(225) );
+    peakWidget.setBounds( meterBounds.removeFromLeft(150)
+                                     .translated(50, 0) );
+    
+    histogramDisplays.setBounds( r );
 }
 
 void Pfmcpp_project10AudioProcessorEditor::timerCallback()
@@ -475,6 +503,8 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
 
         int numSamples = buffer.getNumSamples();
         
+        //==============================================================================
+        
         auto leftRMSLevel  = buffer.getRMSLevel( 0, 0, numSamples );
         auto rightRMSLevel = buffer.getRMSLevel( 1, 0, numSamples );
         
@@ -482,6 +512,8 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
         auto rightRMSdB   = juce::Decibels::gainToDecibels( rightRMSLevel );
         
         rmsWidget.update( leftRMSdB, rightRMSdB );
+        
+        //==============================================================================
         
         auto leftMagnitudeLevel  = buffer.getMagnitude( 0, 0, numSamples );
         auto rightMagnitudeLevel = buffer.getMagnitude( 1, 0, numSamples );
@@ -491,15 +523,14 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
         
         peakWidget.update( leftMagnitudeDB, rightMagnitudeDB );
         
-        //=================================================================================
+        //==============================================================================
         
-        // takes the average of both channels and stores it in channel 0 of the graphics buffer
-        buffer.addFrom( 0, 0, buffer, 1, 0, numSamples, 0.5f );
+        auto averageRMSdB  = (leftRMSdB + rightRMSdB) / 2.f;
+        auto averagePeakDB = (leftMagnitudeDB + rightMagnitudeDB) / 2.f;
         
-        auto averageRMSLevel = buffer.getRMSLevel( 0, 0, numSamples );
-        auto averageRMSdB    = juce::Decibels::gainToDecibels( averageRMSLevel );
+        histogramDisplays.update( averageRMSdB, averagePeakDB );
         
-        rmsHistogram.update( averageRMSdB );
+        //==============================================================================
         
     }
     
