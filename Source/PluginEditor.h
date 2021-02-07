@@ -318,6 +318,11 @@ struct HistogramDisplay : juce::Component
 private:
     CircularBuffer<float> buffer;
     juce::String label;
+    
+    juce::ColourGradient gradient;
+    juce::Colour green{ juce::Colours::green.withMultipliedAlpha(0.75f) };
+    juce::Colour yellow{ juce::Colours::yellow.withMultipliedAlpha(0.75f) };
+    juce::Colour red{ juce::Colours::red.withMultipliedAlpha(0.75f) };
 };
 
 
