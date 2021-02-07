@@ -344,7 +344,7 @@ void StereoMeterWidget::update( float newLeftValue, float newRightValue )
 HistogramDisplay::HistogramDisplay( std::size_t bufferSize, juce::String l )
     : buffer( bufferSize, NEGATIVE_INFINITY_DB ), label(l)
 {
-    
+
 }
 
 void HistogramDisplay::paint( juce::Graphics& g )
@@ -355,8 +355,6 @@ void HistogramDisplay::paint( juce::Graphics& g )
     auto& yData = buffer.getData();
     std::size_t readIndex = buffer.getReadIndex();
     std::size_t size = buffer.getSize();
-    float x = 0.f;
-    float xStep = (float)getLocalBounds().getWidth() / (float)size;
     
     float minY = (float)getLocalBounds().getHeight();
     float maxY = 10.f;
@@ -373,12 +371,11 @@ void HistogramDisplay::paint( juce::Graphics& g )
                            NEGATIVE_INFINITY_DB, MAX_DB,
                            minY, maxY );
         
-        path.lineTo( x, yPos);
+        path.lineTo( i, yPos);
         
         if( ++readIndex > size - 1 )
             readIndex = 0;
-        
-        x += xStep;
+
     }
     
     float endX = (float)getLocalBounds().getWidth() + 2.f;
@@ -391,15 +388,29 @@ void HistogramDisplay::paint( juce::Graphics& g )
     g.strokePath( path, juce::PathStrokeType{1.5f} );
     
     juce::Colour green{ juce::Colours::green.withMultipliedAlpha(0.75f) };
-    
-    // unsure how to "append" these to the gradient
     juce::Colour yellow{ juce::Colours::yellow.withMultipliedAlpha(0.75f) };
     juce::Colour red{ juce::Colours::red.withMultipliedAlpha(0.75f) };
     
     juce::ColourGradient gradient = juce::ColourGradient::vertical( green, minY,
-                                                                    green.darker(), juce::jmap(-12.f,
+                                                                    green.darker(), juce::jmap(-5.9f,
                                                                                                NEGATIVE_INFINITY_DB, MAX_DB,
                                                                                                minY, maxY) );
+    
+    gradient.addColour( (double)juce::jmap(-3.f,
+                                           NEGATIVE_INFINITY_DB, MAX_DB,
+                                           0.f, 1.f), yellow );
+    
+    gradient.addColour( (double)juce::jmap(-0.1f,
+                                           NEGATIVE_INFINITY_DB, MAX_DB,
+                                           0.f, 1.f), yellow.darker() );
+    
+    gradient.addColour( (double)juce::jmap(0.f,
+                                           NEGATIVE_INFINITY_DB, MAX_DB,
+                                           0.f, 1.f), red );
+    
+    gradient.addColour( (double)juce::jmap(12.f,
+                                           NEGATIVE_INFINITY_DB, MAX_DB,
+                                           0.f, 1.f), red.darker() );
     
     g.setGradientFill( gradient );
     g.fillPath( path );
@@ -412,7 +423,7 @@ void HistogramDisplay::paint( juce::Graphics& g )
 
 void HistogramDisplay::resized()
 {
-    
+    buffer.resize( getWidth(), NEGATIVE_INFINITY_DB );
 }
 
 void HistogramDisplay::update( float newValue )
