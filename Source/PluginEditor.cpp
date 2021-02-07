@@ -373,11 +373,10 @@ void HistogramDisplay::paint( juce::Graphics& g )
     
     float minY = (float)getLocalBounds().getHeight();
     float maxY = 10.f;
+    float xPos = 0.f;
     float yPos = 0.f;
     
     Path path;
-    
-    path.startNewSubPath( -2.f, minY + 5.f );
     
     for( int i = 0; i < size; ++i )
     {
@@ -386,16 +385,21 @@ void HistogramDisplay::paint( juce::Graphics& g )
                            NEGATIVE_INFINITY_DB, MAX_DB,
                            minY, maxY );
         
-        path.lineTo( i, yPos);
+        if( i == 0 )
+            path.startNewSubPath( xPos, yPos );
+        
+        else
+            path.lineTo( xPos, yPos);
         
         if( ++readIndex > size - 1 )
             readIndex = 0;
+        
+        xPos += 1.f;
 
     }
-    
-    float endX = (float)getLocalBounds().getWidth() + 2.f;
-    path.lineTo( endX, yPos );
-    path.lineTo( endX, minY + 2.f );
+
+    path.lineTo( xPos, yPos );
+    path.lineTo( xPos, minY );
     
     path.closeSubPath();
     
@@ -408,7 +412,6 @@ void HistogramDisplay::paint( juce::Graphics& g )
     g.setColour( juce::Colours::white );
     g.setFont( 16.f );
     g.drawText( label, getLocalBounds().removeFromBottom(20), juce::Justification::centred );
-
 }
 
 void HistogramDisplay::resized()
@@ -528,8 +531,8 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
         
         //==============================================================================
         
-        auto averageRMSdB  = (leftRMSdB + rightRMSdB) / 2.f;
-        auto averagePeakDB = (leftMagnitudeDB + rightMagnitudeDB) / 2.f;
+        auto averageRMSdB  = (leftRMSdB + rightRMSdB) * 0.5f;
+        auto averagePeakDB = (leftMagnitudeDB + rightMagnitudeDB) * 0.5f;
         
         histogramDisplays.update( averageRMSdB, averagePeakDB );
         
