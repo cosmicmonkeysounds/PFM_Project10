@@ -377,24 +377,23 @@ void HistogramDisplay::paint( juce::Graphics& g )
     float xPos = 0.f;
     
     Path path;
-    path.startNewSubPath( xPos, minY );
-    
+    path.startNewSubPath( getLocalBounds().getBottomLeft().toFloat() );
+
     while( xPos < (float)size )
     {
         yPos = juce::jmap( yData[readIndex],
                            NEGATIVE_INFINITY_DB, MAX_DB,
                            minY, maxY );
-        
+
         path.lineTo( xPos, yPos);
-        
+
         if( ++readIndex > size - 1 )
             readIndex = 0;
-        
+
         xPos += 1.f;
     }
 
-    path.lineTo( xPos, yPos );
-    path.lineTo( xPos, minY );
+    path.lineTo( getLocalBounds().getBottomRight().toFloat() );
     path.closeSubPath();
     
     g.setColour( juce::Colours::white );
