@@ -369,37 +369,30 @@ void HistogramDisplay::paint( juce::Graphics& g )
     
     auto& yData = buffer.getData();
     std::size_t readIndex = buffer.getReadIndex();
-    std::size_t size = buffer.getSize();
+    float size = (float)buffer.getSize();
     
-    float minY = (float)getLocalBounds().getHeight();
+    float minY = (float)getHeight();
     float maxY = 10.f;
-    float xPos = 0.f;
     float yPos = 0.f;
     
     Path path;
+    path.startNewSubPath( 0.f, minY );
     
-    for( int i = 0; i < size; ++i )
+    for( float i = 0.f; i < size; i += 1.f )
     {
-        
         yPos = juce::jmap( yData[readIndex],
                            NEGATIVE_INFINITY_DB, MAX_DB,
                            minY, maxY );
         
-        if( i == 0 )
-            path.startNewSubPath( xPos, yPos );
-        
-        else
-            path.lineTo( xPos, yPos);
+        path.lineTo( i, yPos);
         
         if( ++readIndex > size - 1 )
             readIndex = 0;
-        
-        xPos += 1.f;
-
     }
 
-    path.lineTo( xPos, yPos );
-    path.lineTo( xPos, minY );
+    float maxX = (float)getWidth();
+    path.lineTo( maxX, yPos );
+    path.lineTo( maxX, minY );
     
     path.closeSubPath();
     
