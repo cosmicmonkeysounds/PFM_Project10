@@ -367,33 +367,34 @@ void HistogramDisplay::paint( juce::Graphics& g )
     g.setColour( juce::Colours::black );
     g.fillAll();
     
-    auto& yData = buffer.getData();
+    auto& yData           = buffer.getData();
+    std::size_t size      = buffer.getSize();
     std::size_t readIndex = buffer.getReadIndex();
-    float size = (float)buffer.getSize();
     
     float minY = (float)getHeight();
     float maxY = 10.f;
     float yPos = 0.f;
+    float xPos = 0.f;
     
     Path path;
-    path.startNewSubPath( 0.f, minY );
+    path.startNewSubPath( xPos, minY );
     
-    for( float i = 0.f; i < size; i += 1.f )
+    while( xPos < (float)size )
     {
         yPos = juce::jmap( yData[readIndex],
                            NEGATIVE_INFINITY_DB, MAX_DB,
                            minY, maxY );
         
-        path.lineTo( i, yPos);
+        path.lineTo( xPos, yPos);
         
         if( ++readIndex > size - 1 )
             readIndex = 0;
+        
+        xPos += 1.f;
     }
 
-    float maxX = (float)getWidth();
-    path.lineTo( maxX, yPos );
-    path.lineTo( maxX, minY );
-    
+    path.lineTo( xPos, yPos );
+    path.lineTo( xPos, minY );
     path.closeSubPath();
     
     g.setColour( juce::Colours::white );
