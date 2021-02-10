@@ -344,6 +344,11 @@ void StereoMeterWidget::update( float newLeftValue, float newRightValue )
 HistogramDisplay::HistogramDisplay( std::size_t bufferSize, juce::String l )
     : buffer( bufferSize, NEGATIVE_INFINITY_DB ), label(l)
 {
+    
+    juce::Colour green{ juce::Colours::green.withMultipliedAlpha(0.75f) };
+    juce::Colour yellow{ juce::Colours::yellow.withMultipliedAlpha(0.75f) };
+    juce::Colour red{ juce::Colours::red.withMultipliedAlpha(0.75f) };
+    
     gradient.addColour( 0.0, green );
     
     gradient.addColour( (double)juce::jmap(-9.f,
@@ -378,7 +383,7 @@ void HistogramDisplay::paint( juce::Graphics& g )
     
     juce::Path path;
     
-    auto lowerLeft = getLocalBounds().getBottomLeft().toFloat() += juce::Point<float>{0, 2.f};
+    auto lowerLeft = getLocalBounds().getBottomLeft().toFloat() + juce::Point<float>{0, 2.f};
     path.startNewSubPath( lowerLeft );
 
     while( xPos < (float)size )
@@ -395,7 +400,7 @@ void HistogramDisplay::paint( juce::Graphics& g )
         xPos += 1.f;
     }
 
-    auto lowerRight = getLocalBounds().getBottomRight().toFloat() += juce::Point<float>{0, 2.f};
+    auto lowerRight = getLocalBounds().getBottomRight().toFloat() + juce::Point<float>{0, 2.f};
     path.lineTo( lowerRight );
     path.closeSubPath();
     
