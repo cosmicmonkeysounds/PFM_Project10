@@ -287,8 +287,7 @@ struct CircularBuffer
         std::size_t writeInd = writeIndex.load();
         dataHolder[writeInd] = itemToAdd;
         
-        ++writeInd;
-        if( writeInd > getSize() - 1 )
+        if( ++writeInd > getSize() - 1 )
             writeInd = 0;
         
         writeIndex.store( writeInd );
@@ -301,6 +300,43 @@ struct CircularBuffer
 private:
     DataType dataHolder;
     std::atomic<std::size_t> writeIndex;
+};
+
+
+//==============================================================================
+
+
+struct HistogramDisplay : juce::Component
+{
+    HistogramDisplay(std::size_t, juce::String);
+    
+    void paint(juce::Graphics&) override;
+    void resized() override;
+    
+    void update(float);
+
+private:
+    CircularBuffer<float> buffer;
+    juce::String label;
+    juce::ColourGradient gradient;
+};
+
+
+//==============================================================================
+
+
+struct HistogramWidget : juce::Component
+{
+    HistogramWidget();
+    
+    void paint(juce::Graphics&) override;
+    void resized() override;
+    
+    void update(float, float);
+    
+private:
+    const std::size_t bufferSize{64};
+    HistogramDisplay rmsDisplay{bufferSize, "RMS"}, peakDisplay{bufferSize, "PEAK"};
 };
 
 
@@ -327,6 +363,7 @@ private:
     AudioBuffer<float> buffer;
     
     StereoMeterWidget rmsWidget{"RMS"}, peakWidget{"PEAK"};
+    HistogramWidget histogramDisplays;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };

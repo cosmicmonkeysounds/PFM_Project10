@@ -334,6 +334,132 @@ void StereoMeterWidget::update( float newLeftValue, float newRightValue )
 {
     leftMeterWidget.update( newLeftValue );
     rightMeterWidget.update( newRightValue );
+    repaint();
+}
+
+
+//==============================================================================
+
+
+HistogramDisplay::HistogramDisplay( std::size_t bufferSize, juce::String l )
+    : buffer( bufferSize, NEGATIVE_INFINITY_DB ), label(l)
+{
+    
+    juce::Colour green{ juce::Colours::green.withMultipliedAlpha(0.75f) };
+    juce::Colour yellow{ juce::Colours::yellow.withMultipliedAlpha(0.75f) };
+    juce::Colour red{ juce::Colours::red.withMultipliedAlpha(0.75f) };
+    
+    gradient.addColour( 0.0, green );
+    
+    gradient.addColour( (double)juce::jmap(-9.f,
+                                           NEGATIVE_INFINITY_DB, MAX_DB,
+                                           0.f, 1.f), yellow );
+    
+    gradient.addColour( (double)juce::jmap(-3.f,
+                                           NEGATIVE_INFINITY_DB, MAX_DB,
+                                           0.f, 1.f), yellow.darker() );
+    
+    gradient.addColour( (double)juce::jmap(-1.f,
+                                           NEGATIVE_INFINITY_DB, MAX_DB,
+                                           0.f, 1.f), red );
+    
+    gradient.addColour( 1.0, red.darker() );
+    
+}
+
+void HistogramDisplay::paint( juce::Graphics& g )
+{
+    g.setColour( juce::Colours::black );
+    g.fillAll();
+    
+    auto& yData           = buffer.getData();
+    std::size_t size      = buffer.getSize();
+    std::size_t readIndex = buffer.getReadIndex();
+    
+    float minY = (float)getHeight();
+    float maxY = 10.f;
+    float yPos = 0.f;
+    float xPos = 0.f;
+    
+    auto bounds     = getLocalBounds();
+    auto lowerLeft  = bounds.getBottomLeft().toFloat() + juce::Point<float>{0, 2.f};
+    auto lowerRight = bounds.getBottomRight().toFloat() + juce::Point<float>{0, 2.f};
+    
+    juce::Path path;
+    path.startNewSubPath( lowerLeft );
+
+    while( xPos < (float)size )
+    {
+        yPos = juce::jmap( yData[readIndex],
+                           NEGATIVE_INFINITY_DB, MAX_DB,
+                           minY, maxY );
+
+        path.lineTo( xPos, yPos);
+
+        if( ++readIndex > size - 1 )
+            readIndex = 0;
+
+        xPos += 1.f;
+    }
+    
+    path.lineTo( lowerRight );
+    path.closeSubPath();
+    
+    g.setColour( juce::Colours::white );
+    g.strokePath( path, juce::PathStrokeType{1.5f} );
+    
+    g.setGradientFill( gradient );
+    g.fillPath( path );
+    
+    g.setColour( juce::Colours::white );
+    g.setFont( 16.f );
+    g.drawText( label, bounds.removeFromBottom(20), juce::Justification::centred );
+}
+
+void HistogramDisplay::resized()
+{
+    buffer.resize( getWidth(), NEGATIVE_INFINITY_DB );
+    gradient.point1 = { 0, (float)getHeight() };
+    gradient.point2 = { 0, 0 };
+}
+
+void HistogramDisplay::update( float newValue )
+{
+    buffer.write( newValue );
+    repaint();
+}
+
+
+//==============================================================================
+
+
+HistogramWidget::HistogramWidget()
+{
+    addAndMakeVisible( rmsDisplay );
+    addAndMakeVisible( peakDisplay );
+}
+
+void HistogramWidget::paint( juce::Graphics& g )
+{
+    g.setColour( juce::Colours::black );
+    g.fillAll();
+}
+
+void HistogramWidget::resized()
+{
+    auto r = getLocalBounds();
+    const int halfWidth = r.getWidth() / 2;
+    const int padding = 10;
+    
+    rmsDisplay.setBounds( r.removeFromLeft(halfWidth).reduced(padding) );
+    peakDisplay.setBounds( r.reduced(padding) );
+}
+
+void HistogramWidget::update( float rms, float peak )
+{
+    rmsDisplay.update( rms );
+    peakDisplay.update( peak );
+    repaint();
 }
 
 
@@ -347,6 +473,7 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     
     addAndMakeVisible( rmsWidget );
     addAndMakeVisible( peakWidget );
+    addAndMakeVisible( histogramDisplays );
     
     setSize (800, 640);
 }
@@ -356,21 +483,25 @@ Pfmcpp_project10AudioProcessorEditor::~Pfmcpp_project10AudioProcessorEditor()
     stopTimer();
 }
 
-//==============================================================================
 void Pfmcpp_project10AudioProcessorEditor::paint (Graphics& g)
 {
-
+    g.setColour( juce::Colours::ivory );
+    g.fillAll();
 }
 
 void Pfmcpp_project10AudioProcessorEditor::resized()
 {
-    auto r = getBounds().translated(50, -50)
-                        .withSizeKeepingCentre(getWidth(), getHeight() * 0.7);
+    auto r = getLocalBounds().withSizeKeepingCentre(getWidth() * 0.95, getHeight() * 0.95);
+    const int padding = 10;
     
-    rmsWidget.setBounds( r.removeFromLeft(150) );
+    auto meterBounds = r.removeFromTop(r.getHeight()/2).reduced(0, padding);
     
-    peakWidget.setBounds( r.removeFromLeft(150)
-                           .translated(50, 0) );
+    rmsWidget.setBounds(meterBounds.removeFromLeft(150));
+    
+    peakWidget.setBounds( meterBounds.removeFromLeft(150)
+                                     .translated(50, 0) );
+    
+    histogramDisplays.setBounds( r );
 }
 
 void Pfmcpp_project10AudioProcessorEditor::timerCallback()
@@ -380,6 +511,8 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
 
         int numSamples = buffer.getNumSamples();
         
+        //==============================================================================
+        
         auto leftRMSLevel  = buffer.getRMSLevel( 0, 0, numSamples );
         auto rightRMSLevel = buffer.getRMSLevel( 1, 0, numSamples );
         
@@ -388,6 +521,8 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
         
         rmsWidget.update( leftRMSdB, rightRMSdB );
         
+        //==============================================================================
+        
         auto leftMagnitudeLevel  = buffer.getMagnitude( 0, 0, numSamples );
         auto rightMagnitudeLevel = buffer.getMagnitude( 1, 0, numSamples );
         
@@ -395,8 +530,16 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
         auto rightMagnitudeDB = juce::Decibels::gainToDecibels( rightMagnitudeLevel );
         
         peakWidget.update( leftMagnitudeDB, rightMagnitudeDB );
+        
+        //==============================================================================
+        
+        auto averageRMSdB  = (leftRMSdB + rightRMSdB) * 0.5f;
+        auto averagePeakDB = (leftMagnitudeDB + rightMagnitudeDB) * 0.5f;
+        
+        histogramDisplays.update( averageRMSdB, averagePeakDB );
+        
+        //==============================================================================
+        
     }
     
-    rmsWidget.repaint();
-    peakWidget.repaint();
 }
