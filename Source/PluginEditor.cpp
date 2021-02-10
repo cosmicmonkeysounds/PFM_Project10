@@ -381,9 +381,11 @@ void HistogramDisplay::paint( juce::Graphics& g )
     float yPos = 0.f;
     float xPos = 0.f;
     
-    juce::Path path;
+    auto bounds     = getLocalBounds();
+    auto lowerLeft  = bounds.getBottomLeft().toFloat() + juce::Point<float>{0, 2.f};
+    auto lowerRight = bounds.getBottomRight().toFloat() + juce::Point<float>{0, 2.f};
     
-    auto lowerLeft = getLocalBounds().getBottomLeft().toFloat() + juce::Point<float>{0, 2.f};
+    juce::Path path;
     path.startNewSubPath( lowerLeft );
 
     while( xPos < (float)size )
@@ -399,8 +401,7 @@ void HistogramDisplay::paint( juce::Graphics& g )
 
         xPos += 1.f;
     }
-
-    auto lowerRight = getLocalBounds().getBottomRight().toFloat() + juce::Point<float>{0, 2.f};
+    
     path.lineTo( lowerRight );
     path.closeSubPath();
     
@@ -412,7 +413,7 @@ void HistogramDisplay::paint( juce::Graphics& g )
     
     g.setColour( juce::Colours::white );
     g.setFont( 16.f );
-    g.drawText( label, getLocalBounds().removeFromBottom(20), juce::Justification::centred );
+    g.drawText( label, bounds.removeFromBottom(20), juce::Justification::centred );
 }
 
 void HistogramDisplay::resized()
