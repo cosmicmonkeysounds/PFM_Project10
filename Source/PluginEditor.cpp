@@ -466,6 +466,107 @@ void HistogramWidget::update( float rms, float peak )
 //==============================================================================
 
 
+Goniometer::Goniometer()
+{
+    
+}
+
+void Goniometer::paint( juce::Graphics& g )
+{
+    g.drawImageAt( background, 0, 0 );
+}
+
+void Goniometer::resized()
+{
+    auto r = getLocalBounds();
+    auto pixelFormat = juce::Image::PixelFormat::RGB;
+    
+    //=================================================================================================================
+    
+    juce::Image newBackground;
+    
+    // this if/else is just so it doesn't crash when using JUCE_LIVE_CONSTANT
+    // for some reason, when changing gain on my test sine oscillator, it sets the LocalBounds to 0 before "resizing"
+
+    if( r.getWidth() != 0 && r.getHeight() != 0 )
+        newBackground = juce::Image{ pixelFormat, r.getWidth(), r.getHeight(), true };
+    else
+        newBackground = background.createCopy();
+    
+    //=================================================================================================================
+    
+    juce::Graphics g( newBackground );
+    g.fillAll( juce::Colours::black );
+    
+    //=================================================================================================================
+    
+    int minXY      = juce::jmin( r.getWidth(), r.getHeight() );
+    int padding    = minXY * 0.1;
+    int circleSize = minXY - padding;
+    
+    juce::Rectangle<float> bgArea = r.withSizeKeepingCentre(circleSize, circleSize).toFloat();
+    
+    float radius = bgArea.getWidth() * 0.5f;
+    
+    //=================================================================================================================
+    
+    float labelSize       = 20.f;
+    float halfLabelSize   = labelSize / 2.f;
+    float radiusPlusLabel = radius + labelSize;
+    
+    //=================================================================================================================
+    
+    float lineThickness = 1.f;
+    
+    //=================================================================================================================
+    
+    g.setColour( juce::Colours::white );
+    g.drawEllipse( bgArea, lineThickness + 1.f );
+    
+    //=================================================================================================================
+    
+    juce::Point<float> centre = bgArea.getCentre();
+    auto centreLeft           = centre.translated( -radius, 0.f );
+    auto centreRight          = centre.translated( radius, 0.f );
+
+    juce::Point<float> labelOffset{ -labelSize, 0.f };
+    juce::Line<float> diameterLine{ centreLeft + labelOffset, centreRight };
+    
+    //=================================================================================================================
+
+    float angleInRadians = 45.f * (juce::MathConstants<float>::pi / 180.f);
+    auto angleTransform  = juce::AffineTransform::rotation( angleInRadians, bgArea.getCentreX(), bgArea.getCentreY() );
+    
+    //=================================================================================================================
+    
+    g.setFont( juce::Font{18.f} );
+    
+    for( auto& label : labels )
+    {
+        
+        float xOffset = juce::jmap( diameterLine.getStartX() - centre.x,
+                                    radiusPlusLabel, -radiusPlusLabel,
+                                    -halfLabelSize, halfLabelSize );
+
+        float yOffset = juce::jmap( diameterLine.getStartY() - centre.y,
+                                    0.f, radius,
+                                    0.f, -halfLabelSize );
+
+//        DBG( label << ":\nxOffset: " << xOffset << "\nyOffset: " << yOffset << "\n\n" );
+        
+        float labelXPos = diameterLine.getStartX() + (xOffset - halfLabelSize);
+        float labelYPos = diameterLine.getStartY() + (yOffset - halfLabelSize);
+        
+        g.drawText( label, labelXPos, labelYPos, labelSize, labelSize, juce::Justification::centred );
+        
+        g.drawLine( diameterLine.withShortenedStart(labelSize), lineThickness );
+        diameterLine.applyTransform( angleTransform );
+    }
+
+    background = newBackground.createCopy();
+}
+
+
 Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmcpp_project10AudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
 {
@@ -474,6 +575,7 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     addAndMakeVisible( rmsWidget );
     addAndMakeVisible( peakWidget );
     addAndMakeVisible( histogramDisplays );
+    addAndMakeVisible( goniometer );
     
     setSize (800, 640);
 }
@@ -494,14 +596,15 @@ void Pfmcpp_project10AudioProcessorEditor::resized()
     auto r = getLocalBounds().withSizeKeepingCentre(getWidth() * 0.95, getHeight() * 0.95);
     const int padding = 10;
     
-    auto meterBounds = r.removeFromTop(r.getHeight()/2).reduced(0, padding);
+    auto meterBounds = r.removeFromTop(r.getHeight() * 0.6).reduced(0, padding);
+    rmsWidget.setBounds( meterBounds.removeFromLeft(150) );
+    peakWidget.setBounds( meterBounds.removeFromLeft(150).translated(50, 0) );
     
-    rmsWidget.setBounds(meterBounds.removeFromLeft(150));
+    auto goniometerBounds = meterBounds.withTrimmedLeft( peakWidget.getWidth() * 0.5 + padding );
+    goniometer.setBounds( goniometerBounds );
     
-    peakWidget.setBounds( meterBounds.removeFromLeft(150)
-                                     .translated(50, 0) );
-    
-    histogramDisplays.setBounds( r );
+    auto histogramBounds = r;
+    histogramDisplays.setBounds( histogramBounds );
 }
 
 void Pfmcpp_project10AudioProcessorEditor::timerCallback()
