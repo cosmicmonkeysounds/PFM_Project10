@@ -350,11 +350,16 @@ struct Goniometer : public juce::Component
     void paint(juce::Graphics&) override;
     void resized() override;
     
+    void update(const juce::AudioBuffer<float>&);
     
 private:
     
     juce::Image background;
     std::vector<juce::String> labels = {"+S", "L", "M", "R", "-S"};
+    
+    juce::Path path;
+    
+    float minus3dB = std::log10(-3.f) * 20.f;
 };
 
 
@@ -379,6 +384,7 @@ private:
     Pfmcpp_project10AudioProcessor& processor;
     
     AudioBuffer<float> buffer;
+    AudioBuffer<float> gonioBuffer;
     
     StereoMeterWidget rmsWidget{"RMS"}, peakWidget{"PEAK"};
     HistogramWidget histogramDisplays;

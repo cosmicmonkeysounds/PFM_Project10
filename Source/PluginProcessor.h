@@ -109,6 +109,7 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
     
     Fifo<AudioBuffer<float>> fifo;
+    Fifo<AudioBuffer<float>> gonioFifo;
 
 private:
     //==============================================================================
