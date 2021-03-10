@@ -468,11 +468,15 @@ void HistogramWidget::update( float rms, float peak )
 
 Goniometer::Goniometer()
 {
+    
 }
 
 void Goniometer::paint( juce::Graphics& g )
 {
     g.drawImageAt( background, 0, 0 );
+    
+    g.setColour( juce::Colours::skyblue );
+    g.strokePath( path, juce::PathStrokeType{2.f} );
 }
 
 void Goniometer::resized()
@@ -492,7 +496,6 @@ void Goniometer::resized()
     int circleSize = minXY - padding;
     
     juce::Rectangle<float> bgArea = r.withSizeKeepingCentre(circleSize, circleSize).toFloat();
-    
     float radius = bgArea.getWidth() * 0.5f;
     
     //==============================================================================
@@ -538,27 +541,69 @@ void Goniometer::resized()
         float yOffset = juce::jmap( diameterLine.getStartY() - centre.y,
                                     0.f, radius,
                                     0.f, -halfLabelSize );
-
-//        DBG( label << ":\nxOffset: " << xOffset << "\nyOffset: " << yOffset << "\n\n" );
         
         float labelXPos = diameterLine.getStartX() + (xOffset - halfLabelSize);
         float labelYPos = diameterLine.getStartY() + (yOffset - halfLabelSize);
         
         g.drawText( label, labelXPos, labelYPos, labelSize, labelSize, juce::Justification::centred );
-        
         g.drawLine( diameterLine.withShortenedStart(labelSize), lineThickness );
+        
         diameterLine.applyTransform( angleTransform );
     }
-
 }
 
 void Goniometer::update( const juce::AudioBuffer<float>& newBuffer )
 {
-
-//    int increment;
-//    float mid   = (lSample + rSample) * minus3dB;
-//    float sides = (lSample - rSample) * minus3dB;
+    const float* leftChannel  = newBuffer.getReadPointer(0);
+    const float* rightChannel = newBuffer.getReadPointer(1);
+    
+    path.clear();
+    
+    const float startLeftSample  = leftChannel[0];
+    const float startRightSample = rightChannel[0];
+    
+    const float startMid   = (startLeftSample + startRightSample) * minus3dB;
+    const float startSides = (startLeftSample - startRightSample) * minus3dB;
+    
+    auto r = getLocalBounds().toFloat();
+    
+    const float startMidInPixels = juce::jmap( startMid,
+                                               -1.f, 1.f,
+                                               r.getHeight(), 0.f );
+    
+    const float startSidesInPixels = juce::jmap( startSides,
+                                                 -1.f, 1.f,
+                                                 r.getWidth(), 0.f );
+    
+    juce::Point<float> point{startSidesInPixels, startMidInPixels};
+    path.startNewSubPath(point);
+    
+    int increment = 1;
+    
+    if( newBuffer.getNumSamples() > 3*256 )
+        increment = 3;
+    
+    for( int sample = 1; sample < newBuffer.getNumSamples(); sample += increment )
+    {
+        const float leftSample  = leftChannel[sample];
+        const float rightSample = rightChannel[sample];
         
+        const float mid   = (leftSample + rightSample) * minus3dB;
+        const float sides = (leftSample - rightSample) * minus3dB;
+        
+        const float midInPixels = juce::jmap( mid,
+                                              -1.f, 1.f,
+                                              r.getHeight(), 0.f );
+        
+        const float sidesInPixels = juce::jmap( sides,
+                                                -1.f, 1.f,
+                                                r.getWidth(), 0.f );
+        
+        path.lineTo( juce::Point{sidesInPixels, midInPixels} );
+    }
+    
+    path.closeSubPath();
+    repaint();
 }
 
 //==============================================================================

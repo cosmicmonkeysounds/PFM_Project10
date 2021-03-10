@@ -358,8 +358,7 @@ private:
     std::vector<juce::String> labels = {"+S", "L", "M", "R", "-S"};
     
     juce::Path path;
-    
-    float minus3dB = std::log10(-3.f) * 20.f;
+    float minus3dB = std::pow( 10.0, (-3.0 * 0.05) );
 };
 
 
