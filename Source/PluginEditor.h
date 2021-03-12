@@ -367,31 +367,34 @@ private:
 class CorrelationMeter : public juce::Component
 {
 public:
-    CorrelationMeter();
+    CorrelationMeter(double);
     
     void paint(juce::Graphics&) override;
     void resized() override;
     
-    void update(const juce::AudioBuffer<float>&);
+    void update(juce::AudioBuffer<float>&);
     
 private:
     using FilterType = juce::dsp::IIR::Filter<float>;
     std::array<FilterType, 3> filters;
-    Averager<float> averager;
+    juce::dsp::ProcessSpec filterSpec;
+    float instantCorrelation;
+    
+    Averager<float> averager {10, 0.f};
     juce::Rectangle<int> meterBounds;
 };
 
 //==============================================================================
 
-class MidSideWidget : public juce::Component
+class StereoImageMeter : public juce::Component
 {
 public:
-    MidSideWidget();
+    StereoImageMeter(double);
     
     void paint(juce::Graphics&) override;
     void resized() override;
     
-    void update(const juce::AudioBuffer<float>&);
+    void update(juce::AudioBuffer<float>&);
     
 private:
     const int padding = 10;
@@ -421,7 +424,7 @@ private:
     
     StereoMeterWidget rmsWidget{"RMS"}, peakWidget{"PEAK"};
     HistogramWidget histogramDisplays;
-    MidSideWidget msWidget;
+    StereoImageMeter stereoImageMeter{ processor.getSampleRate() };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };

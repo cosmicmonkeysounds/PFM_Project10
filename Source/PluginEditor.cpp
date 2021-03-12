@@ -577,13 +577,15 @@ juce::Point<float> Goniometer::leftRightToMidSidePoint(float leftSample, float r
 
 //==============================================================================
 
-CorrelationMeter::CorrelationMeter() : averager( 10, 0.f )
+CorrelationMeter::CorrelationMeter( double sampleRate )
 {
-    auto c = juce::dsp::IIR::Coefficients<float>::makeLowPass (44100, 100.f);
-    for (auto it = filters.begin(); it != filters.end(); ++it)
-    {
-        it->coefficients = c;
-    }
+    auto c = juce::dsp::IIR::Coefficients<float>::makeLowPass (sampleRate, 100.f);
+    
+    filterSpec.sampleRate  = sampleRate;
+    filterSpec.numChannels = 1;
+    
+    for( auto& filter : filters )
+        filter.coefficients = c;
 }
 
 void CorrelationMeter::paint(juce::Graphics& g)
@@ -605,28 +607,71 @@ void CorrelationMeter::resized()
 {
     auto r = getLocalBounds();
     meterBounds = r.withSizeKeepingCentre( r.getWidth() * 0.8, r.getHeight() );
-    DBG (meterBounds.toString());
 }
 
-void CorrelationMeter::update(const juce::AudioBuffer<float>& buffer)
+void CorrelationMeter::update(juce::AudioBuffer<float>& buffer)
 {
+    filterSpec.maximumBlockSize = buffer.getNumSamples();
     
+    for( auto& filter : filters )
+        filter.prepare( filterSpec );
+    
+    juce::dsp::AudioBlock<float> leftRightBlock{ buffer };
+    
+    auto leftBlock  = leftRightBlock.getSingleChannelBlock(0);
+    auto rightBlock = leftRightBlock.getSingleChannelBlock(1);
+    
+    juce::dsp::AudioBlock<float> leftRightProductBlock {leftBlock};
+    leftRightProductBlock.multiplyBy(rightBlock);
+    
+    leftBlock.multiplyBy( leftBlock );
+    rightBlock.multiplyBy( rightBlock );
+    
+    juce::dsp::ProcessContextReplacing<float> leftRightProductContext {leftRightProductBlock};
+    juce::dsp::ProcessContextReplacing<float> leftSquaredContext      {leftBlock};
+    juce::dsp::ProcessContextReplacing<float> rightSquaredContext     {rightBlock};
+    
+    filters[0].process( leftRightProductContext );
+    filters[1].process( leftSquaredContext );
+    filters[2].process( rightSquaredContext );
+    
+    auto numerator   = leftRightProductContext.getOutputBlock();
+    auto denominator = leftSquaredContext.getOutputBlock().multiplyBy(rightSquaredContext.getOutputBlock());
+    
+    auto numeratorChannel   = numerator.getChannelPointer(0);
+    auto denominatorChannel = denominator.getChannelPointer(0);
+    
+    float sum = 0.f;
+    
+    for( int sample = 0; sample < buffer.getNumSamples(); ++sample )
+    {
+        denominatorChannel[sample] = std::sqrt( denominatorChannel[sample] );
+        sum += (numeratorChannel[sample] / denominatorChannel[sample]);
+    }
+    
+    const float avg = sum / (float)buffer.getNumSamples();
+    instantCorrelation = avg;
+    
+    if( std::isnan(sum) || std::isinf(sum) )
+        averager.add(0.f);
+    else
+        averager.add(avg);
 }
 
 //==============================================================================
 
-MidSideWidget::MidSideWidget()
+StereoImageMeter::StereoImageMeter( double sampleRate ) : correlationMeter( sampleRate )
 {
     addAndMakeVisible( goniometer );
     addAndMakeVisible( correlationMeter );
 }
 
-void MidSideWidget::paint(juce::Graphics& g)
+void StereoImageMeter::paint(juce::Graphics& g)
 {
     g.fillAll( juce::Colours::black );
 }
 
-void MidSideWidget::resized()
+void StereoImageMeter::resized()
 {
     auto r           = getLocalBounds();
     auto gonioBounds = r.removeFromTop(r.getHeight() * 0.85).reduced(padding);
@@ -635,9 +680,10 @@ void MidSideWidget::resized()
     correlationMeter.setBounds ( r.translated(0, -padding) );
 }
 
-void MidSideWidget::update(const juce::AudioBuffer<float>& buffer)
+void StereoImageMeter::update(juce::AudioBuffer<float>& buffer)
 {
     goniometer.update( buffer );
+    correlationMeter.update( buffer );
 }
 
 Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmcpp_project10AudioProcessor& p)
@@ -648,7 +694,7 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     addAndMakeVisible( rmsWidget );
     addAndMakeVisible( peakWidget );
     addAndMakeVisible( histogramDisplays );
-    addAndMakeVisible( msWidget );
+    addAndMakeVisible( stereoImageMeter );
     
     setSize (800, 640);
 }
@@ -674,7 +720,7 @@ void Pfmcpp_project10AudioProcessorEditor::resized()
     peakWidget.setBounds( meterBounds.removeFromLeft(150).translated(50, 0) );
     
     auto midSideBounds = meterBounds.withTrimmedLeft( peakWidget.getWidth() * 0.5 + padding );
-    msWidget.setBounds( midSideBounds );
+    stereoImageMeter.setBounds( midSideBounds );
     
     auto histogramBounds = r;
     histogramDisplays.setBounds( histogramBounds );
@@ -720,7 +766,7 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
         
         histogramDisplays.update( averageRMSdB, averagePeakDB );
         
-        msWidget.update( buffer );
+        stereoImageMeter.update( buffer );
         
     }
 }
