@@ -465,12 +465,6 @@ void HistogramWidget::update( float rms, float peak )
 
 //==============================================================================
 
-
-Goniometer::Goniometer()
-{
-    
-}
-
 void Goniometer::paint( juce::Graphics& g )
 {
     g.drawImageAt( background, 0, 0 );
@@ -491,12 +485,14 @@ void Goniometer::resized()
     
     //==============================================================================
     
-    int minXY      = juce::jmin( r.getWidth(), r.getHeight() );
-    int padding    = minXY * 0.1;
-    int circleSize = minXY - padding;
+    auto rf = r.toFloat();
     
-    juce::Rectangle<float> bgArea = r.withSizeKeepingCentre(circleSize, circleSize).toFloat();
-    float radius = bgArea.getWidth() * 0.5f;
+    float minXY      = juce::jmin( rf.getWidth(), rf.getHeight() );
+    padding          = minXY * 0.1f;
+    float circleSize = minXY - padding;
+    
+    circleBounds = rf.withSizeKeepingCentre(circleSize, circleSize);
+    float radius = circleBounds.getWidth() * 0.5f;
     
     //==============================================================================
     
@@ -507,15 +503,12 @@ void Goniometer::resized()
     //==============================================================================
     
     float lineThickness = 1.f;
-    
-    //==============================================================================
-    
     g.setColour( juce::Colours::white );
-    g.drawEllipse( bgArea, lineThickness + 1.f );
+    g.drawEllipse( circleBounds, lineThickness + 1.f );
     
     //==============================================================================
     
-    juce::Point<float> centre = bgArea.getCentre();
+    juce::Point<float> centre = circleBounds.getCentre();
     auto centreLeft           = centre.translated( -radius, 0.f );
     auto centreRight          = centre.translated( radius, 0.f );
 
@@ -525,7 +518,7 @@ void Goniometer::resized()
     //==============================================================================
 
     float angleInRadians = juce::degreesToRadians( 45.f );
-    auto angleTransform  = juce::AffineTransform::rotation( angleInRadians, bgArea.getCentreX(), bgArea.getCentreY() );
+    auto angleTransform  = juce::AffineTransform::rotation( angleInRadians, circleBounds.getCentreX(), circleBounds.getCentreY() );
     
     //==============================================================================
     
@@ -558,52 +551,29 @@ void Goniometer::update( const juce::AudioBuffer<float>& newBuffer )
     const float* rightChannel = newBuffer.getReadPointer(1);
     
     path.clear();
+    path.startNewSubPath( leftRightToMidSidePoint(leftChannel[0], rightChannel[0]) );
     
-    const float startLeftSample  = leftChannel[0];
-    const float startRightSample = rightChannel[0];
-    
-    const float startMid   = (startLeftSample + startRightSample) * minus3dB;
-    const float startSides = (startLeftSample - startRightSample) * minus3dB;
-    
-    auto r = getLocalBounds().toFloat();
-    
-    const float startMidInPixels = juce::jmap( startMid,
-                                               -1.f, 1.f,
-                                               r.getHeight(), 0.f );
-    
-    const float startSidesInPixels = juce::jmap( startSides,
-                                                 -1.f, 1.f,
-                                                 r.getWidth(), 0.f );
-    
-    juce::Point<float> point{startSidesInPixels, startMidInPixels};
-    path.startNewSubPath(point);
-    
-    int increment = 1;
-    
-    if( newBuffer.getNumSamples() > 3*256 )
-        increment = 3;
+    int increment = std::floor( newBuffer.getNumSamples() / 256 );
     
     for( int sample = 1; sample < newBuffer.getNumSamples(); sample += increment )
-    {
-        const float leftSample  = leftChannel[sample];
-        const float rightSample = rightChannel[sample];
-        
-        const float mid   = (leftSample + rightSample) * minus3dB;
-        const float sides = (leftSample - rightSample) * minus3dB;
-        
-        const float midInPixels = juce::jmap( mid,
-                                              -1.f, 1.f,
-                                              r.getHeight(), 0.f );
-        
-        const float sidesInPixels = juce::jmap( sides,
-                                                -1.f, 1.f,
-                                                r.getWidth(), 0.f );
-        
-        path.lineTo( juce::Point{sidesInPixels, midInPixels} );
-    }
+        path.lineTo( leftRightToMidSidePoint(leftChannel[sample], rightChannel[sample]) );
     
     path.closeSubPath();
     repaint();
+}
+
+juce::Point<float> Goniometer::leftRightToMidSidePoint(float leftSample, float rightSample)
+{
+    const float mid     = (leftSample + rightSample) * minus3dB;
+    const float sides   = (leftSample - rightSample) * minus3dB;
+    
+    float midInPixels   = juce::jmap( mid,   1.f, -1.f, 0.f, circleBounds.getHeight() );
+    float sidesInPixels = juce::jmap( sides, 1.f, -1.f, 0.f, circleBounds.getWidth() );
+    
+    midInPixels   += padding * 0.5f;
+    sidesInPixels += padding * 0.95f;
+    
+    return juce::Point { sidesInPixels, midInPixels };
 }
 
 //==============================================================================

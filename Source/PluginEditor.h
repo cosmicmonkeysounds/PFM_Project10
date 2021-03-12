@@ -344,9 +344,7 @@ private:
 
 
 struct Goniometer : public juce::Component
-{
-    Goniometer();
-    
+{    
     void paint(juce::Graphics&) override;
     void resized() override;
     
@@ -354,11 +352,14 @@ struct Goniometer : public juce::Component
     
 private:
     
+    juce::Path path;
     juce::Image background;
+    float padding;
+    juce::Rectangle<float> circleBounds;
     std::vector<juce::String> labels = {"+S", "L", "M", "R", "-S"};
     
-    juce::Path path;
-    float minus3dB = std::pow( 10.0, (-3.0 * 0.05) );
+    const float minus3dB = std::pow(10.0, (-3.0 * 0.05));
+    juce::Point<float> leftRightToMidSidePoint(float, float);
 };
 
 
