@@ -581,9 +581,8 @@ CorrelationMeter::CorrelationMeter( double sampleRate )
 {
     auto c = juce::dsp::IIR::Coefficients<float>::makeLowPass (sampleRate, 100.f);
     
-    filterSpec.sampleRate       = sampleRate;
-    filterSpec.numChannels      = 1;
-    filterSpec.maximumBlockSize = 0;
+    filterSpec.sampleRate  = sampleRate;
+    filterSpec.numChannels = 1;
     
     for( auto& filter : filters )
         filter = juce::dsp::IIR::Filter<float>(c);
@@ -612,19 +611,11 @@ void CorrelationMeter::resized()
 
 void CorrelationMeter::update(juce::AudioBuffer<float>& buffer)
 {
-    int numSamples = buffer.getNumSamples();
-    
-    if( filterSpec.maximumBlockSize != numSamples )
-    {
-        filterSpec.maximumBlockSize = numSamples;
-        for( auto& filter : filters )
-            filter.prepare( filterSpec );
-    }
-    
     auto leftChannel  = buffer.getReadPointer(0);
     auto rightChannel = buffer.getReadPointer(1);
     
-    float sum = 0.f;
+    float sum      = 0.f;
+    int numSamples = buffer.getNumSamples();
     
     for( int sample = 0; sample < numSamples; ++sample )
     {
