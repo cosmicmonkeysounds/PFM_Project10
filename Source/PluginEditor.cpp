@@ -621,9 +621,15 @@ void Pfmcpp_project10AudioProcessorEditor::resized()
 
 void Pfmcpp_project10AudioProcessorEditor::timerCallback()
 {
-    if( processor.fifo.pull(buffer) )
+    if( processor.fifo.numberAvailable() > 0 )
     {
 
+        juce::AudioBuffer<float> temp;
+        while( processor.fifo.numberAvailable() > 0 )
+            processor.fifo.pull( temp );
+        
+        buffer = temp;
+        
         int numSamples = buffer.getNumSamples();
         
         //==============================================================================
@@ -653,16 +659,7 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
         
         histogramDisplays.update( averageRMSdB, averagePeakDB );
         
-    }
-    
-    if( processor.gonioFifo.pull(gonioBuffer) )
-    {
-        goniometer.update( gonioBuffer );
-    }
-    
-    else
-    {
-        gonioBuffer.applyGain( juce::Decibels::decibelsToGain(-3.f) );
-        goniometer.update( gonioBuffer );
+        goniometer.update( buffer );
+        
     }
 }

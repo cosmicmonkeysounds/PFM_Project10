@@ -358,7 +358,7 @@ private:
     juce::Rectangle<float> circleBounds;
     std::vector<juce::String> labels = {"+S", "L", "M", "R", "-S"};
     
-    const float minus3dB = std::pow(10.0, (-3.0 * 0.05));
+    const float minus3dB = juce::Decibels::decibelsToGain(-3.f);
     juce::Point<float> leftRightToMidSidePoint(float, float);
 };
 
