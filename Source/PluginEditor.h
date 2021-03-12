@@ -353,8 +353,8 @@ struct Goniometer : public juce::Component
 private:
     
     juce::Path path;
+    juce::Point<float> pathOffsetPoint;
     juce::Image background;
-    float padding;
     juce::Rectangle<float> circleBounds;
     std::vector<juce::String> labels = {"+S", "L", "M", "R", "-S"};
     
@@ -362,9 +362,43 @@ private:
     juce::Point<float> leftRightToMidSidePoint(float, float);
 };
 
+//==============================================================================
+
+class CorrelationMeter : public juce::Component
+{
+public:
+    CorrelationMeter();
+    
+    void paint(juce::Graphics&) override;
+    void resized() override;
+    
+    void update(const juce::AudioBuffer<float>&);
+    
+private:
+    using FilterType = juce::dsp::IIR::Filter<float>;
+    std::array<FilterType, 3> filters;
+    Averager<float> averager;
+    juce::Rectangle<int> meterBounds;
+};
 
 //==============================================================================
 
+class MidSideWidget : public juce::Component
+{
+public:
+    MidSideWidget();
+    
+    void paint(juce::Graphics&) override;
+    void resized() override;
+    
+    void update(const juce::AudioBuffer<float>&);
+    
+private:
+    const int padding = 10;
+    double sampleRate;
+    Goniometer goniometer;
+    CorrelationMeter correlationMeter;
+};
 
 class Pfmcpp_project10AudioProcessorEditor  : public AudioProcessorEditor, public Timer
 {
@@ -387,7 +421,7 @@ private:
     
     StereoMeterWidget rmsWidget{"RMS"}, peakWidget{"PEAK"};
     HistogramWidget histogramDisplays;
-    Goniometer goniometer;
+    MidSideWidget msWidget;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };
