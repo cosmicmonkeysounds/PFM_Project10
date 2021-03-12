@@ -343,6 +343,29 @@ private:
 //==============================================================================
 
 
+struct Goniometer : public juce::Component
+{    
+    void paint(juce::Graphics&) override;
+    void resized() override;
+    
+    void update(const juce::AudioBuffer<float>&);
+    
+private:
+    
+    juce::Path path;
+    juce::Image background;
+    float padding;
+    juce::Rectangle<float> circleBounds;
+    std::vector<juce::String> labels = {"+S", "L", "M", "R", "-S"};
+    
+    const float minus3dB = juce::Decibels::decibelsToGain(-3.f);
+    juce::Point<float> leftRightToMidSidePoint(float, float);
+};
+
+
+//==============================================================================
+
+
 class Pfmcpp_project10AudioProcessorEditor  : public AudioProcessorEditor, public Timer
 {
 public:
@@ -364,6 +387,7 @@ private:
     
     StereoMeterWidget rmsWidget{"RMS"}, peakWidget{"PEAK"};
     HistogramWidget histogramDisplays;
+    Goniometer goniometer;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };

@@ -465,6 +465,119 @@ void HistogramWidget::update( float rms, float peak )
 
 //==============================================================================
 
+void Goniometer::paint( juce::Graphics& g )
+{
+    g.drawImageAt( background, 0, 0 );
+    
+    g.setColour( juce::Colours::skyblue );
+    g.strokePath( path, juce::PathStrokeType{2.f} );
+}
+
+void Goniometer::resized()
+{
+    auto r = getLocalBounds();
+    
+    auto pixelFormat = juce::Image::PixelFormat::SingleChannel;
+    background = { pixelFormat, r.getWidth(), r.getHeight(), true };
+    
+    juce::Graphics g( background );
+    g.fillAll( juce::Colours::black );
+    
+    //==============================================================================
+    
+    auto rf = r.toFloat();
+    
+    float minXY      = juce::jmin( rf.getWidth(), rf.getHeight() );
+    padding          = minXY * 0.1f;
+    float circleSize = minXY - padding;
+    
+    circleBounds = rf.withSizeKeepingCentre(circleSize, circleSize);
+    float radius = circleBounds.getWidth() * 0.5f;
+    
+    //==============================================================================
+    
+    float labelSize       = 20.f;
+    float halfLabelSize   = labelSize / 2.f;
+    float radiusPlusLabel = radius + labelSize;
+    
+    //==============================================================================
+    
+    float lineThickness = 1.f;
+    g.setColour( juce::Colours::white );
+    g.drawEllipse( circleBounds, lineThickness + 1.f );
+    
+    //==============================================================================
+    
+    juce::Point<float> centre = circleBounds.getCentre();
+    auto centreLeft           = centre.translated( -radius, 0.f );
+    auto centreRight          = centre.translated( radius, 0.f );
+
+    juce::Point<float> labelOffset{ -labelSize, 0.f };
+    juce::Line<float> diameterLine{ centreLeft + labelOffset, centreRight };
+    
+    //==============================================================================
+
+    float angleInRadians = juce::degreesToRadians( 45.f );
+    auto angleTransform  = juce::AffineTransform::rotation( angleInRadians, circleBounds.getCentreX(), circleBounds.getCentreY() );
+    
+    //==============================================================================
+    
+    g.setFont( juce::Font{18.f} );
+    
+    for( auto& label : labels )
+    {
+        
+        float xOffset = juce::jmap( diameterLine.getStartX() - centre.x,
+                                    radiusPlusLabel, -radiusPlusLabel,
+                                    -(halfLabelSize - 3.f), halfLabelSize - 3.f );
+
+        float yOffset = juce::jmap( diameterLine.getStartY() - centre.y,
+                                    0.f, radius,
+                                    0.f, -halfLabelSize );
+        
+        float labelXPos = diameterLine.getStartX() + (xOffset - halfLabelSize);
+        float labelYPos = diameterLine.getStartY() + (yOffset - halfLabelSize);
+        
+        g.drawText( label, labelXPos, labelYPos, labelSize, labelSize, juce::Justification::centred );
+        g.drawLine( diameterLine.withShortenedStart(labelSize), lineThickness );
+        
+        diameterLine.applyTransform( angleTransform );
+    }
+}
+
+void Goniometer::update( const juce::AudioBuffer<float>& newBuffer )
+{
+    const float* leftChannel  = newBuffer.getReadPointer(0);
+    const float* rightChannel = newBuffer.getReadPointer(1);
+    
+    path.clear();
+    path.startNewSubPath( leftRightToMidSidePoint(leftChannel[0], rightChannel[0]) );
+    
+    int increment = std::floor( newBuffer.getNumSamples() / 256 );
+    
+    for( int sample = 1; sample < newBuffer.getNumSamples(); sample += increment )
+        path.lineTo( leftRightToMidSidePoint(leftChannel[sample], rightChannel[sample]) );
+    
+    path.closeSubPath();
+    repaint();
+}
+
+juce::Point<float> Goniometer::leftRightToMidSidePoint(float leftSample, float rightSample)
+{
+    const float mid     = (leftSample + rightSample) * minus3dB;
+    const float sides   = (leftSample - rightSample) * minus3dB;
+    
+    float midInPixels   = juce::jmap( mid,   1.f, -1.f, 0.f, circleBounds.getHeight() );
+    float sidesInPixels = juce::jmap( sides, 1.f, -1.f, 0.f, circleBounds.getWidth() );
+    
+    midInPixels   += padding * 0.5f;
+    sidesInPixels += padding * 0.95f;
+    
+    return juce::Point { sidesInPixels, midInPixels };
+}
+
+//==============================================================================
+
 
 Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmcpp_project10AudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
@@ -474,6 +587,7 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     addAndMakeVisible( rmsWidget );
     addAndMakeVisible( peakWidget );
     addAndMakeVisible( histogramDisplays );
+    addAndMakeVisible( goniometer );
     
     setSize (800, 640);
 }
@@ -494,21 +608,28 @@ void Pfmcpp_project10AudioProcessorEditor::resized()
     auto r = getLocalBounds().withSizeKeepingCentre(getWidth() * 0.95, getHeight() * 0.95);
     const int padding = 10;
     
-    auto meterBounds = r.removeFromTop(r.getHeight()/2).reduced(0, padding);
+    auto meterBounds = r.removeFromTop(r.getHeight() * 0.6).reduced(0, padding);
+    rmsWidget.setBounds( meterBounds.removeFromLeft(150) );
+    peakWidget.setBounds( meterBounds.removeFromLeft(150).translated(50, 0) );
     
-    rmsWidget.setBounds(meterBounds.removeFromLeft(150));
+    auto goniometerBounds = meterBounds.withTrimmedLeft( peakWidget.getWidth() * 0.5 + padding );
+    goniometer.setBounds( goniometerBounds );
     
-    peakWidget.setBounds( meterBounds.removeFromLeft(150)
-                                     .translated(50, 0) );
-    
-    histogramDisplays.setBounds( r );
+    auto histogramBounds = r;
+    histogramDisplays.setBounds( histogramBounds );
 }
 
 void Pfmcpp_project10AudioProcessorEditor::timerCallback()
 {
-    if( processor.fifo.pull(buffer) )
+    if( processor.fifo.numberAvailable() > 0 )
     {
 
+        juce::AudioBuffer<float> temp;
+        while( processor.fifo.numberAvailable() > 0 )
+            processor.fifo.pull( temp );
+        
+        buffer = temp;
+        
         int numSamples = buffer.getNumSamples();
         
         //==============================================================================
@@ -538,8 +659,7 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
         
         histogramDisplays.update( averageRMSdB, averagePeakDB );
         
-        //==============================================================================
+        goniometer.update( buffer );
         
     }
-    
 }

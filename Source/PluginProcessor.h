@@ -56,6 +56,8 @@ struct Fifo
         return false;
     }
     
+    int numberAvailable() { return fifo.getNumReady(); }
+    
 private:
     
     static constexpr int Size = 5;

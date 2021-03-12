@@ -157,9 +157,7 @@ void Pfmcpp_project10AudioProcessor::processBlock (AudioBuffer<float>& buffer, M
 #if SINE_OSC_TEST
     juce::dsp::AudioBlock<float> testAudioBlock{ buffer };
     testOsc.process( juce::dsp::ProcessContextReplacing<float>(testAudioBlock) );
-    
-    float db = JUCE_LIVE_CONSTANT(-6.f);
-    testOscGain.setGainDecibels( db );
+    testOscGain.setGainDecibels( -6.f );
     testOscGain.process( juce::dsp::ProcessContextReplacing<float>(testAudioBlock) );
 #endif
 
