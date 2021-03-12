@@ -162,7 +162,6 @@ void Pfmcpp_project10AudioProcessor::processBlock (AudioBuffer<float>& buffer, M
 #endif
 
     fifo.push( buffer );
-    gonioFifo.push( buffer );
     
 #if SINE_OSC_TEST
     buffer.clear();

@@ -384,7 +384,6 @@ private:
     Pfmcpp_project10AudioProcessor& processor;
     
     AudioBuffer<float> buffer;
-    AudioBuffer<float> gonioBuffer;
     
     StereoMeterWidget rmsWidget{"RMS"}, peakWidget{"PEAK"};
     HistogramWidget histogramDisplays;
