@@ -377,7 +377,6 @@ public:
 private:
     using FilterType = juce::dsp::IIR::Filter<float>;
     std::array<FilterType, 3> filters;
-    juce::dsp::ProcessSpec filterSpec;
     float instantCorrelation;
     
     Averager<float> averager {10, 0.f};

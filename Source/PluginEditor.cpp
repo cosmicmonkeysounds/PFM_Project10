@@ -580,10 +580,6 @@ juce::Point<float> Goniometer::leftRightToMidSidePoint(float leftSample, float r
 CorrelationMeter::CorrelationMeter( double sampleRate )
 {
     auto c = juce::dsp::IIR::Coefficients<float>::makeLowPass (sampleRate, 100.f);
-    
-    filterSpec.sampleRate  = sampleRate;
-    filterSpec.numChannels = 1;
-    
     for( auto& filter : filters )
         filter = juce::dsp::IIR::Filter<float>(c);
 }
