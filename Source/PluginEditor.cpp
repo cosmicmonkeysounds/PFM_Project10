@@ -581,11 +581,12 @@ CorrelationMeter::CorrelationMeter( double sampleRate )
 {
     auto c = juce::dsp::IIR::Coefficients<float>::makeLowPass (sampleRate, 100.f);
     
-    filterSpec.sampleRate  = sampleRate;
-    filterSpec.numChannels = 1;
+    filterSpec.sampleRate       = sampleRate;
+    filterSpec.numChannels      = 1;
+    filterSpec.maximumBlockSize = 0;
     
     for( auto& filter : filters )
-        filter.coefficients = c;
+        filter = juce::dsp::IIR::Filter<float>(c);
 }
 
 void CorrelationMeter::paint(juce::Graphics& g)
@@ -611,51 +612,43 @@ void CorrelationMeter::resized()
 
 void CorrelationMeter::update(juce::AudioBuffer<float>& buffer)
 {
-    filterSpec.maximumBlockSize = buffer.getNumSamples();
+    int numSamples = buffer.getNumSamples();
     
-    for( auto& filter : filters )
-        filter.prepare( filterSpec );
+    if( filterSpec.maximumBlockSize != numSamples )
+    {
+        filterSpec.maximumBlockSize = numSamples;
+        for( auto& filter : filters )
+            filter.prepare( filterSpec );
+    }
     
-    juce::dsp::AudioBlock<float> leftRightBlock{ buffer };
-    
-    auto leftBlock  = leftRightBlock.getSingleChannelBlock(0);
-    auto rightBlock = leftRightBlock.getSingleChannelBlock(1);
-    
-    juce::dsp::AudioBlock<float> leftRightProductBlock {leftBlock};
-    leftRightProductBlock.multiplyBy(rightBlock);
-    
-    leftBlock.multiplyBy( leftBlock );
-    rightBlock.multiplyBy( rightBlock );
-    
-    juce::dsp::ProcessContextReplacing<float> leftRightProductContext {leftRightProductBlock};
-    juce::dsp::ProcessContextReplacing<float> leftSquaredContext      {leftBlock};
-    juce::dsp::ProcessContextReplacing<float> rightSquaredContext     {rightBlock};
-    
-    filters[0].process( leftRightProductContext );
-    filters[1].process( leftSquaredContext );
-    filters[2].process( rightSquaredContext );
-    
-    auto numerator   = leftRightProductContext.getOutputBlock();
-    auto denominator = leftSquaredContext.getOutputBlock().multiplyBy(rightSquaredContext.getOutputBlock());
-    
-    auto numeratorChannel   = numerator.getChannelPointer(0);
-    auto denominatorChannel = denominator.getChannelPointer(0);
+    auto leftChannel  = buffer.getReadPointer(0);
+    auto rightChannel = buffer.getReadPointer(1);
     
     float sum = 0.f;
     
-    for( int sample = 0; sample < buffer.getNumSamples(); ++sample )
+    for( int sample = 0; sample < numSamples; ++sample )
     {
-        denominatorChannel[sample] = std::sqrt( denominatorChannel[sample] );
-        sum += (numeratorChannel[sample] / denominatorChannel[sample]);
+        float left  = leftChannel[sample];
+        float right = rightChannel[sample];
+        
+        float c_t = 0.f;
+        
+        float denominator = std::sqrt( filters[0].processSample(left*left) * filters[1].processSample(right*right) );
+        if( !std::isnan(denominator) || !std::isinf(denominator) )
+        {
+            float numerator = filters[2].processSample( left * right );
+            if( !std::isnan(numerator) || !std::isinf(numerator) )
+            {
+                c_t = numerator / denominator;
+            }
+        }
+        
+        averager.add( c_t );
+        sum += c_t;
     }
     
-    const float avg = sum / (float)buffer.getNumSamples();
-    instantCorrelation = avg;
-    
-    if( std::isnan(sum) || std::isinf(sum) )
-        averager.add(0.f);
-    else
-        averager.add(avg);
+    instantCorrelation = sum / (float)numSamples;
+    repaint();
 }
 
 //==============================================================================
