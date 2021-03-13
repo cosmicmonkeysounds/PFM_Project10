@@ -586,16 +586,18 @@ CorrelationMeter::CorrelationMeter( double sampleRate )
 
 juce::Rectangle<int> CorrelationMeter::trimRect( juce::Rectangle<int> r, const float& value )
 {
-    if( value > 0.f )
+    if( value >= 0.f )
     {
-        r.removeFromLeft( r.getWidth()/2 );
-        r.setWidth( r.getWidth() * value );
+        r.removeFromLeft( r.getWidth() * 0.5 );
+        int sliceFromRight = juce::jmap( value, 0.f, 1.f, (float)r.getWidth(), 0.f );
+        r.removeFromRight( sliceFromRight );
     }
     
     else
     {
         r.setWidth( r.getWidth() * 0.5 );
-        r.removeFromLeft( juce::jmap(value, -1.f, 0.f, 0.f, (float)r.getWidth()) );
+        int sliceFromLeft = juce::jmap( value, -1.f, 0.f, 0.f, (float)r.getWidth() );
+        r.removeFromLeft( sliceFromLeft );
     }
     
     return r;
@@ -614,11 +616,6 @@ void CorrelationMeter::paint(juce::Graphics& g)
     g.drawText( "-1", r, juce::Justification::left);
     g.drawRect( meterBounds );
     g.drawLine( meterBounds.getCentreX(), 0, meterBounds.getCentreX(), meterBounds.getHeight() );
-    
-    // just drawing these for debug reasons
-    g.setColour( juce::Colours::red );
-    g.drawText( juce::String{averager.getAverage()}, averageMeterBounds, juce::Justification::centred );
-    g.drawText( juce::String{instantCorrelation},    instantMeterBounds, juce::Justification::centred );
 }
 
 void CorrelationMeter::resized()
@@ -630,6 +627,8 @@ void CorrelationMeter::resized()
     averageMeterBounds = meterCopy.removeFromTop( meterBounds.getHeight() * 0.2 );
     instantMeterBounds = meterCopy.withTrimmedTop( padding );
 }
+
+#include <limits>
 
 void CorrelationMeter::update( juce::AudioBuffer<float>& buffer )
 {
@@ -644,17 +643,13 @@ void CorrelationMeter::update( juce::AudioBuffer<float>& buffer )
         float left  = leftChannel[sample];
         float right = rightChannel[sample];
         
-        float c_t = 0.f;
+        float numerator   = filters[0].processSample( left * right );
+        float denominator = std::sqrt( filters[1].processSample(left*left) * filters[2].processSample(right*right) );
+        float c_t         = numerator / denominator;
         
-        float denominator = std::sqrt( filters[0].processSample(left*left) * filters[1].processSample(right*right) );
-        if( !std::isnan(denominator) || !std::isinf(denominator) )
-        {
-            float numerator = filters[2].processSample( left * right );
-            if( !std::isnan(numerator) || !std::isinf(numerator) )
-            {
-                c_t = numerator / denominator;
-            }
-        }
+        if( std::isnan(c_t) || std::isinf(c_t) || std::abs(c_t) <= std::numeric_limits<float>::epsilon() )
+            c_t = 0;
+        
         sum += c_t;
     }
     
