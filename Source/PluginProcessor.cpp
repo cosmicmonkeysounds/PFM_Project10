@@ -101,13 +101,12 @@ void Pfmcpp_project10AudioProcessor::prepareToPlay (double sampleRate, int sampl
 #if SINE_OSC_TEST
     
     juce::dsp::ProcessSpec testOscSpec;
-    testOscSpec.maximumBlockSize = samplesPerBlock;
     testOscSpec.sampleRate       = sampleRate;
     testOscSpec.numChannels      = getTotalNumOutputChannels();
+    testOscSpec.maximumBlockSize = samplesPerBlock;
     
-    testOsc.prepare( testOscSpec );
-    testOsc.setFrequency( 120.f );
-    
+    sinOsc.prepare( testOscSpec );
+    sinOsc.setFrequency( 120.f );
     testOscGain.prepare( testOscSpec );
     testOscGain.setGainDecibels( -6.f );
     
@@ -156,9 +155,10 @@ void Pfmcpp_project10AudioProcessor::processBlock (AudioBuffer<float>& buffer, M
 
 #if SINE_OSC_TEST
     juce::dsp::AudioBlock<float> testAudioBlock{ buffer };
-    testOsc.process( juce::dsp::ProcessContextReplacing<float>(testAudioBlock) );
+    juce::dsp::ProcessContextReplacing<float> process{ testAudioBlock };
+    sinOsc.process( process );
     testOscGain.setGainDecibels( -6.f );
-    testOscGain.process( juce::dsp::ProcessContextReplacing<float>(testAudioBlock) );
+    testOscGain.process( process );
 #endif
 
     fifo.push( buffer );

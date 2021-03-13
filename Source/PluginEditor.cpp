@@ -145,7 +145,6 @@ void Meter::paint( juce::Graphics& g )
 
 void Meter::resized()
 {
-    
     ticks.clear();
     
     int meterBoxHeight = getHeight();
@@ -253,8 +252,7 @@ void MacroMeterWidget::resized()
 {
     auto r = getLocalBounds();
     
-    r = r.withSizeKeepingCentre( r.getWidth() * 0.9f,
-                                 r.getHeight() );
+    r = r.withSizeKeepingCentre( r.getWidth() * 0.9f, r.getHeight() );
     
     const int textBoxHeight = 40;
     textMeter.setBounds( r.removeFromTop(textBoxHeight) );
@@ -481,14 +479,13 @@ void Goniometer::resized()
     background = { pixelFormat, r.getWidth(), r.getHeight(), true };
     
     juce::Graphics g( background );
-    g.fillAll( juce::Colours::black );
     
     //==============================================================================
     
     auto rf = r.toFloat();
     
     float minXY      = juce::jmin( rf.getWidth(), rf.getHeight() );
-    padding          = minXY * 0.1f;
+    float padding    = minXY * 0.1f;
     float circleSize = minXY - padding;
     
     circleBounds = rf.withSizeKeepingCentre(circleSize, circleSize);
@@ -543,6 +540,12 @@ void Goniometer::resized()
         
         diameterLine.applyTransform( angleTransform );
     }
+    
+    
+    float pathYOffset  = (r.getHeight() - circleBounds.getHeight()) * 0.5f;
+    float pathXOffset  = (r.getWidth()  - circleBounds.getWidth())  * 0.5f;
+    
+    pathOffsetPoint = juce::Point<float> {pathXOffset, pathYOffset};
 }
 
 void Goniometer::update( const juce::AudioBuffer<float>& newBuffer )
@@ -564,20 +567,124 @@ void Goniometer::update( const juce::AudioBuffer<float>& newBuffer )
 
 juce::Point<float> Goniometer::leftRightToMidSidePoint(float leftSample, float rightSample)
 {
-    const float mid     = (leftSample + rightSample) * minus3dB;
-    const float sides   = (leftSample - rightSample) * minus3dB;
+    const float mid           = (leftSample + rightSample) * minus3dB;
+    const float sides         = (leftSample - rightSample) * minus3dB;
+    const float midInPixels   = juce::jmap( mid,   1.f, -1.f, 0.f, circleBounds.getHeight() );
+    const float sidesInPixels = juce::jmap( sides, 1.f, -1.f, 0.f, circleBounds.getWidth() );
     
-    float midInPixels   = juce::jmap( mid,   1.f, -1.f, 0.f, circleBounds.getHeight() );
-    float sidesInPixels = juce::jmap( sides, 1.f, -1.f, 0.f, circleBounds.getWidth() );
-    
-    midInPixels   += padding * 0.5f;
-    sidesInPixels += padding * 0.95f;
-    
-    return juce::Point { sidesInPixels, midInPixels };
+    return pathOffsetPoint + juce::Point<float> {sidesInPixels, midInPixels};
 }
 
 //==============================================================================
 
+CorrelationMeter::CorrelationMeter( double sampleRate )
+{
+    auto c = juce::dsp::IIR::Coefficients<float>::makeLowPass (sampleRate, 100.f);
+    for( auto& filter : filters )
+        filter = juce::dsp::IIR::Filter<float>(c);
+}
+
+juce::Rectangle<int> CorrelationMeter::trimRect( juce::Rectangle<int> r, const float& value )
+{
+    if( value >= 0.f )
+    {
+        r.removeFromLeft( r.getWidth() * 0.5 );
+        int sliceFromRight = juce::jmap( value, 0.f, 1.f, (float)r.getWidth(), 0.f );
+        r.removeFromRight( sliceFromRight );
+    }
+    
+    else
+    {
+        r.setWidth( r.getWidth() * 0.5 );
+        int sliceFromLeft = juce::jmap( value, -1.f, 0.f, 0.f, (float)r.getWidth() );
+        r.removeFromLeft( sliceFromLeft );
+    }
+    
+    return r;
+}
+
+void CorrelationMeter::paint(juce::Graphics& g)
+{
+    g.setColour( juce::Colours::pink );
+    g.fillRect( trimRect(averageMeterBounds, averager.getAverage()) );
+    g.fillRect( trimRect(instantMeterBounds, instantCorrelation) );
+    
+    auto r = getLocalBounds().reduced( getLocalBounds().getWidth() * 0.03 , 0 );
+    g.setColour( juce::Colours::whitesmoke );
+    g.setFont( juce::Font{16.f} );
+    g.drawText( "+1", r, juce::Justification::right);
+    g.drawText( "-1", r, juce::Justification::left);
+    g.drawRect( meterBounds );
+    g.drawLine( meterBounds.getCentreX(), 0, meterBounds.getCentreX(), meterBounds.getHeight() );
+}
+
+void CorrelationMeter::resized()
+{
+    auto r             = getLocalBounds();
+    meterBounds        = r.withSizeKeepingCentre( r.getWidth() * 0.8, r.getHeight() );
+    const int padding  = 4;
+    auto meterCopy     = meterBounds.reduced( 0, padding );
+    averageMeterBounds = meterCopy.removeFromTop( meterBounds.getHeight() * 0.2 );
+    instantMeterBounds = meterCopy.withTrimmedTop( padding );
+}
+
+#include <limits>
+
+void CorrelationMeter::update( juce::AudioBuffer<float>& buffer )
+{
+    auto leftChannel  = buffer.getReadPointer(0);
+    auto rightChannel = buffer.getReadPointer(1);
+    
+    float sum      = 0.f;
+    int numSamples = buffer.getNumSamples();
+    
+    for( int sample = 0; sample < numSamples; ++sample )
+    {
+        float left  = leftChannel[sample];
+        float right = rightChannel[sample];
+        
+        float numerator   = filters[0].processSample( left * right );
+        float denominator = std::sqrt( filters[1].processSample(left*left) * filters[2].processSample(right*right) );
+        float c_t         = numerator / denominator;
+        
+        if( std::isnan(c_t) || std::isinf(c_t) || std::abs(c_t) <= std::numeric_limits<float>::epsilon() )
+            c_t = 0;
+        
+        sum += c_t;
+    }
+    
+    instantCorrelation = sum / (float)numSamples;
+    averager.add( instantCorrelation );
+    repaint();
+}
+
+//==============================================================================
+
+StereoImageMeter::StereoImageMeter( double sampleRate ) : correlationMeter( sampleRate )
+{
+    addAndMakeVisible( goniometer );
+    addAndMakeVisible( correlationMeter );
+}
+
+void StereoImageMeter::paint(juce::Graphics& g)
+{
+    g.fillAll( juce::Colours::black );
+}
+
+void StereoImageMeter::resized()
+{
+    auto r           = getLocalBounds();
+    auto gonioBounds = r.removeFromTop(r.getHeight() * 0.85).reduced(padding);
+    
+    goniometer.setBounds       ( gonioBounds );
+    correlationMeter.setBounds ( r.translated(0, -padding) );
+}
+
+void StereoImageMeter::update(juce::AudioBuffer<float>& buffer)
+{
+    goniometer.update( buffer );
+    correlationMeter.update( buffer );
+}
 
 Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmcpp_project10AudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
@@ -587,7 +694,7 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     addAndMakeVisible( rmsWidget );
     addAndMakeVisible( peakWidget );
     addAndMakeVisible( histogramDisplays );
-    addAndMakeVisible( goniometer );
+    addAndMakeVisible( stereoImageMeter );
     
     setSize (800, 640);
 }
@@ -612,8 +719,8 @@ void Pfmcpp_project10AudioProcessorEditor::resized()
     rmsWidget.setBounds( meterBounds.removeFromLeft(150) );
     peakWidget.setBounds( meterBounds.removeFromLeft(150).translated(50, 0) );
     
-    auto goniometerBounds = meterBounds.withTrimmedLeft( peakWidget.getWidth() * 0.5 + padding );
-    goniometer.setBounds( goniometerBounds );
+    auto midSideBounds = meterBounds.withTrimmedLeft( peakWidget.getWidth() * 0.5 + padding );
+    stereoImageMeter.setBounds( midSideBounds );
     
     auto histogramBounds = r;
     histogramDisplays.setBounds( histogramBounds );
@@ -659,7 +766,7 @@ void Pfmcpp_project10AudioProcessorEditor::timerCallback()
         
         histogramDisplays.update( averageRMSdB, averagePeakDB );
         
-        goniometer.update( buffer );
+        stereoImageMeter.update( buffer );
         
     }
 }
