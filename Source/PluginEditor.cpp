@@ -648,7 +648,7 @@ void CorrelationMeter::update( juce::AudioBuffer<float>& buffer )
         float c_t         = numerator / denominator;
         
         if( std::isnan(c_t) || std::isinf(c_t) || std::abs(c_t) <= std::numeric_limits<float>::epsilon() )
-            c_t = 0;
+            c_t = 0.f;
         
         sum += c_t;
     }
