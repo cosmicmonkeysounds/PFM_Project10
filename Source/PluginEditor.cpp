@@ -584,28 +584,54 @@ CorrelationMeter::CorrelationMeter( double sampleRate )
         filter = juce::dsp::IIR::Filter<float>(c);
 }
 
+juce::Rectangle<int> CorrelationMeter::trimRect( juce::Rectangle<int> r, const float& value )
+{
+    if( value > 0.f )
+    {
+        r.removeFromLeft( r.getWidth()/2 );
+        r.setWidth( r.getWidth() * value );
+    }
+    
+    else
+    {
+        r.setWidth( r.getWidth() * 0.5 );
+        r.removeFromLeft( juce::jmap(value, -1.f, 0.f, 0.f, (float)r.getWidth()) );
+    }
+    
+    return r;
+}
+
 void CorrelationMeter::paint(juce::Graphics& g)
 {
-    g.setColour( juce::Colours::grey );
-    g.drawRect( meterBounds );
+    g.setColour( juce::Colours::pink );
+    g.fillRect( trimRect(averageMeterBounds, averager.getAverage()) );
+    g.fillRect( trimRect(instantMeterBounds, instantCorrelation) );
     
-    g.drawLine( meterBounds.getCentreX(), 0, meterBounds.getCentreX(), meterBounds.getHeight() );
-
     auto r = getLocalBounds().reduced( getLocalBounds().getWidth() * 0.03 , 0 );
-    
     g.setColour( juce::Colours::whitesmoke );
     g.setFont( juce::Font{16.f} );
     g.drawText( "+1", r, juce::Justification::right);
     g.drawText( "-1", r, juce::Justification::left);
+    g.drawRect( meterBounds );
+    g.drawLine( meterBounds.getCentreX(), 0, meterBounds.getCentreX(), meterBounds.getHeight() );
+    
+    // just drawing these for debug reasons
+    g.setColour( juce::Colours::red );
+    g.drawText( juce::String{averager.getAverage()}, averageMeterBounds, juce::Justification::centred );
+    g.drawText( juce::String{instantCorrelation},    instantMeterBounds, juce::Justification::centred );
 }
 
 void CorrelationMeter::resized()
 {
-    auto r = getLocalBounds();
-    meterBounds = r.withSizeKeepingCentre( r.getWidth() * 0.8, r.getHeight() );
+    auto r             = getLocalBounds();
+    meterBounds        = r.withSizeKeepingCentre( r.getWidth() * 0.8, r.getHeight() );
+    const int padding  = 4;
+    auto meterCopy     = meterBounds.reduced( 0, padding );
+    averageMeterBounds = meterCopy.removeFromTop( meterBounds.getHeight() * 0.2 );
+    instantMeterBounds = meterCopy.withTrimmedTop( padding );
 }
 
-void CorrelationMeter::update(juce::AudioBuffer<float>& buffer)
+void CorrelationMeter::update( juce::AudioBuffer<float>& buffer )
 {
     auto leftChannel  = buffer.getReadPointer(0);
     auto rightChannel = buffer.getReadPointer(1);
@@ -629,12 +655,11 @@ void CorrelationMeter::update(juce::AudioBuffer<float>& buffer)
                 c_t = numerator / denominator;
             }
         }
-        
-        averager.add( c_t );
         sum += c_t;
     }
     
     instantCorrelation = sum / (float)numSamples;
+    averager.add( instantCorrelation );
     repaint();
 }
 

@@ -116,7 +116,8 @@ private:
     //==============================================================================
     
 #if SINE_OSC_TEST
-    juce::dsp::Oscillator<float> testOsc{ [](float x) { return std::sin(x); }};
+    juce::dsp::Oscillator<float> sinOsc{ [](float x) { return std::sin(x); }};
+    juce::dsp::Oscillator<float> cosOsc{ [](float x) { return std::cos(x); }};
     juce::dsp::Gain<float> testOscGain;
 #endif
 

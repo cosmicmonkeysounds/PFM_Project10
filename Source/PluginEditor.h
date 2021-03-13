@@ -381,6 +381,10 @@ private:
     
     Averager<float> averager {10, 0.f};
     juce::Rectangle<int> meterBounds;
+    juce::Rectangle<int> averageMeterBounds;
+    juce::Rectangle<int> instantMeterBounds;
+
+    juce::Rectangle<int> trimRect(juce::Rectangle<int> , const float&);
 };
 
 //==============================================================================
