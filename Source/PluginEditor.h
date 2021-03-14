@@ -90,24 +90,23 @@ struct Tick
 class Meter : public juce::Component
 {
 public:
-    Meter() = default;
+    Meter();
     ~Meter() override = default;
 
     void paint( juce::Graphics& ) override;
     void resized() override;
     
     void update(float);
-    
-    std::vector<Tick> ticks;
+    void updateThreshold(float);
+    void remakeGradient();
 
 private:
     
     float currentLevel{0.f};
-    
-    const float dbStepSize = 6.f;
-    const float numberOfSteps = (MAX_DB - NEGATIVE_INFINITY_DB) / dbStepSize;
+    float threshold{MAX_DB};
     
     DecayingValueHolder decayingValueHolder;
+    juce::ColourGradient gradient;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR( Meter )
 };
@@ -124,11 +123,14 @@ public:
     
     void paint( juce::Graphics& ) override;
     void resized() override;
-    
+
+    juce::Rectangle<int> displayBounds;
     std::vector<Tick> ticks;
     int yOffset{0};
     
 private:
+    const float dbStepSize = 6.f;
+    const float numberOfSteps = (MAX_DB - NEGATIVE_INFINITY_DB) / dbStepSize;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR( DB_Scale )
 };
@@ -224,15 +226,18 @@ struct MacroMeterWidget : juce::Component
     void resized() override;
     
     void update(float);
+    void updateThreshold(float);
     
     std::vector<Tick> getTicks();
     int getMeterY();
     
-private:
     
+private:
+
     Meter instantMeter, averageMeter;
     TextMeter textMeter;
     Averager<float> averager;
+    friend class StereoMeterWidget;
     
 };
 
@@ -248,6 +253,10 @@ struct StereoMeterWidget : juce::Component
     void resized() override;
     
     void update(float, float);
+    
+    juce::Rectangle<int> getDbScaleBounds();
+    
+    void updateThreshold(float);
     
 private:
     MacroMeterWidget leftMeterWidget, rightMeterWidget;
@@ -314,11 +323,14 @@ struct HistogramDisplay : juce::Component
     void resized() override;
     
     void update(float);
+    void remakeGradient();
+    void updateThreshold(float);
 
 private:
     CircularBuffer<float> buffer;
     juce::String label;
     juce::ColourGradient gradient;
+    float threshold{0.f};
 };
 
 
@@ -334,9 +346,8 @@ struct HistogramWidget : juce::Component
     
     void update(float, float);
     
-private:
     const std::size_t bufferSize{64};
-    HistogramDisplay rmsDisplay{bufferSize, "RMS"}, peakDisplay{bufferSize, "PEAK"};
+    HistogramDisplay rmsDisplay{bufferSize, "RMS"}, peakDisplay{bufferSize, "PEAK"};    
 };
 
 
@@ -406,6 +417,38 @@ private:
     CorrelationMeter correlationMeter;
 };
 
+//==============================================================================
+
+class PFMLookAndFeel : public juce::LookAndFeel_V4
+{
+    void drawLinearSlider( Graphics& g, int x, int y, int width, int height,
+                           float sliderPos, float minSliderPos, float maxSliderPos,
+                           const Slider::SliderStyle style, juce::Slider& slider) override
+    {
+        auto r = slider.getBounds().toFloat();
+        const float thickness = 2.5f;
+        const float yPos = juce::jmap((float)slider.getValue(), NEGATIVE_INFINITY_DB, MAX_DB, r.getHeight(), 0.f);
+        
+        g.setColour( juce::Colours::red );
+        g.drawLine( 0.f, yPos, r.getWidth(), yPos, thickness );
+    }
+    
+};
+
+class ThresholdSlider : public juce::Slider
+{
+public:
+    
+    ThresholdSlider()
+    {
+        setRange( (double)NEGATIVE_INFINITY_DB, (double)MAX_DB );
+        setSliderStyle( juce::Slider::SliderStyle::LinearVertical );
+        setTextBoxStyle( juce::Slider::NoTextBox, true, 1, 1 );
+    }
+};
+
+//==============================================================================
+
 class Pfmcpp_project10AudioProcessorEditor  : public AudioProcessorEditor, public Timer
 {
 public:
@@ -422,12 +465,16 @@ private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     Pfmcpp_project10AudioProcessor& processor;
-    
+
     AudioBuffer<float> buffer;
     
     StereoMeterWidget rmsWidget{"RMS"}, peakWidget{"PEAK"};
-    HistogramWidget histogramDisplays;
+    HistogramWidget histogramWidget;
     StereoImageMeter stereoImageMeter{ processor.getSampleRate() };
+    
+    PFMLookAndFeel lookAndFeel;
+    ThresholdSlider rmsThresholdSlider;
+    ThresholdSlider peakThresholdSlider;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };
