@@ -97,15 +97,12 @@ public:
     void resized() override;
     
     void update(float);
-    
-    std::vector<Tick> ticks;
 
 private:
     
     float currentLevel{0.f};
     
-    const float dbStepSize = 6.f;
-    const float numberOfSteps = (MAX_DB - NEGATIVE_INFINITY_DB) / dbStepSize;
+    
     
     DecayingValueHolder decayingValueHolder;
     
@@ -124,11 +121,14 @@ public:
     
     void paint( juce::Graphics& ) override;
     void resized() override;
-    
+
+    juce::Rectangle<int> displayBounds;
     std::vector<Tick> ticks;
     int yOffset{0};
     
 private:
+    const float dbStepSize = 6.f;
+    const float numberOfSteps = (MAX_DB - NEGATIVE_INFINITY_DB) / dbStepSize;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR( DB_Scale )
 };
@@ -228,11 +228,14 @@ struct MacroMeterWidget : juce::Component
     std::vector<Tick> getTicks();
     int getMeterY();
     
+    void updateThreshold( float newThreshold ) { threshold = newThreshold; }
 private:
     
+    float threshold;
     Meter instantMeter, averageMeter;
     TextMeter textMeter;
     Averager<float> averager;
+    friend class StereoMeterWidget;
     
 };
 
@@ -248,6 +251,14 @@ struct StereoMeterWidget : juce::Component
     void resized() override;
     
     void update(float, float);
+    
+    juce::Rectangle<int> getDbScaleBounds() { return dbScale.displayBounds; }
+    
+    void updateThreshold( float newThreshold )
+    {
+        leftMeterWidget.updateThreshold( newThreshold );
+        rightMeterWidget.updateThreshold( newThreshold );
+    }
     
 private:
     MacroMeterWidget leftMeterWidget, rightMeterWidget;
@@ -406,6 +417,28 @@ private:
     CorrelationMeter correlationMeter;
 };
 
+//==============================================================================
+
+class PFMLookAndFeel : public juce::LookAndFeel_V4
+{
+    void drawLinearSlider( Graphics& g, int x, int y, int width, int height,
+                           float sliderPos, float minSliderPos, float maxSliderPos,
+                           const Slider::SliderStyle style, juce::Slider& slider) override
+    {
+        DBG( "slider val: " << slider.getValue() );
+        auto r = slider.getLocalBounds().toFloat();
+
+        const float thickness = 2.5f;
+        const float yPos = juce::jmap((float)slider.getValue(), NEGATIVE_INFINITY_DB, MAX_DB, r.getHeight(), 0.f);
+        
+        g.setColour( juce::Colours::red );
+        g.drawLine( 0.f, yPos, r.getWidth(), yPos, thickness );
+    }
+    
+};
+
+//==============================================================================
+
 class Pfmcpp_project10AudioProcessorEditor  : public AudioProcessorEditor, public Timer
 {
 public:
@@ -422,12 +455,16 @@ private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     Pfmcpp_project10AudioProcessor& processor;
-    
+
     AudioBuffer<float> buffer;
     
     StereoMeterWidget rmsWidget{"RMS"}, peakWidget{"PEAK"};
     HistogramWidget histogramDisplays;
     StereoImageMeter stereoImageMeter{ processor.getSampleRate() };
+    
+    PFMLookAndFeel lookAndFeel;
+    juce::Slider rmsThresholdSlider;
+    juce::Slider peakThresholdSlider;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };

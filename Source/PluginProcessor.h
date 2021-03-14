@@ -12,7 +12,7 @@
 
 #include "../JuceLibraryCode/JuceHeader.h"
 
-#define SINE_OSC_TEST false
+#define SINE_OSC_TEST true
 
 template<typename T>
 struct Fifo

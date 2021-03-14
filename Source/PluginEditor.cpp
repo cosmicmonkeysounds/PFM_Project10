@@ -124,15 +124,15 @@ void Meter::paint( juce::Graphics& g )
     
     g.fillAll( juce::Colours::black );
     
-    auto bounds = this->getLocalBounds();
-    float heightOfWindow = bounds.getHeight();
+    auto r = getLocalBounds();
+    float heightOfWindow = r.getHeight();
     
     float levelMappedHeight = juce::jmap( currentLevel,
                                           NEGATIVE_INFINITY_DB, MAX_DB,
                                           heightOfWindow, 0.f );
     
     g.setColour( juce::Colours::pink );
-    g.fillRect( bounds.withHeight(heightOfWindow).withY(levelMappedHeight) );
+    g.fillRect( r.withHeight(heightOfWindow).withY(levelMappedHeight) );
     
     g.setColour( juce::Colours::white );
     
@@ -145,22 +145,7 @@ void Meter::paint( juce::Graphics& g )
 
 void Meter::resized()
 {
-    ticks.clear();
-    
-    int meterBoxHeight = getHeight();
-    float y = NEGATIVE_INFINITY_DB;
-    
-    for( int i = 0; i <= (int)numberOfSteps; ++i )
-    {
-        Tick tick;
-        tick.db = y;
-        tick.y = juce::jmap( (int)y,
-                             (int)NEGATIVE_INFINITY_DB, (int)MAX_DB,
-                             meterBoxHeight, 0 );
-        
-        ticks.push_back( tick );
-        y += dbStepSize;
-    }
+
     
 }
 
@@ -177,16 +162,37 @@ void Meter::update( float newLevel )
 
 void DB_Scale::paint( juce::Graphics& g )
 {
+    
+    g.fillAll (juce::Colours::blue);
     g.setColour( juce::Colours::white );
     
+    const int fontSize = 12;
+    const int centreX  = getLocalBounds().getCentreX();
+    juce::Font f ("monospace", fontSize, juce::Font::plain);
+    g.setFont(f);
     for( auto tick : ticks )
-        g.drawSingleLineText( juce::String(tick.db), 5, tick.y + yOffset );
-
+    {
+        const juce::String db(tick.db);
+        const int xPos = centreX - (f.getStringWidth(db) / 2);
+        g.drawSingleLineText( db, xPos, tick.y + (fontSize / 2) + yOffset );
+    }
 }
 
 void DB_Scale::resized()
 {
-
+    ticks.clear();
+    
+    int meterBoxHeight = displayBounds.getHeight();
+    float y = NEGATIVE_INFINITY_DB;
+    
+    for( int i = 0; i <= (int)numberOfSteps; ++i )
+    {
+        Tick tick;
+        tick.db = y;
+        tick.y = juce::jmap( (int)y, (int)NEGATIVE_INFINITY_DB, (int)MAX_DB, meterBoxHeight, 0 );
+        ticks.push_back( tick );
+        y += dbStepSize;
+    }
 }
 
 
@@ -250,9 +256,7 @@ void MacroMeterWidget::paint( juce::Graphics& g )
 
 void MacroMeterWidget::resized()
 {
-    auto r = getLocalBounds();
-    
-    r = r.withSizeKeepingCentre( r.getWidth() * 0.9f, r.getHeight() );
+    auto r = getLocalBounds().withSizeKeepingCentre( getWidth() * 0.9f, getHeight() );
     
     const int textBoxHeight = 40;
     textMeter.setBounds( r.removeFromTop(textBoxHeight) );
@@ -272,14 +276,9 @@ void MacroMeterWidget::update( float newValue )
     averageMeter.update( averager.getAverage() );
 }
 
-std::vector<Tick> MacroMeterWidget::getTicks()
-{
-    return instantMeter.ticks;
-}
-
 int MacroMeterWidget::getMeterY()
 {
-    int macroHeight = getBounds().getY();
+    int macroHeight = getLocalBounds().getY();
     int meterHeight = instantMeter.getBounds().getY();
     return macroHeight + meterHeight;
 }
@@ -318,14 +317,12 @@ void StereoMeterWidget::resized()
                  .withSizeKeepingCentre( r.getWidth() - meterWidth, labelHeight );
     
     leftMeterWidget.setBounds( r.removeFromLeft(meterWidth) );
+    rightMeterWidget.setBounds( r.removeFromRight(meterWidth) );
     
-    dbScale.ticks   = leftMeterWidget.getTicks();
+    juce::Rectangle<int> dbScaleBounds = getLocalBounds().withTrimmedLeft(meterWidth).withTrimmedRight(meterWidth);
+    dbScale.displayBounds = r.withTrimmedTop(leftMeterWidget.getMeterY());
     dbScale.yOffset = leftMeterWidget.getMeterY();
-    
-    dbScale.setBounds( r.removeFromLeft(meterWidth)
-                        .withHeight(getHeight()) );
-    
-    rightMeterWidget.setBounds( r );
+    dbScale.setBounds( dbScaleBounds );
 }
 
 void StereoMeterWidget::update( float newLeftValue, float newRightValue )
@@ -388,9 +385,7 @@ void HistogramDisplay::paint( juce::Graphics& g )
 
     while( xPos < (float)size )
     {
-        yPos = juce::jmap( yData[readIndex],
-                           NEGATIVE_INFINITY_DB, MAX_DB,
-                           minY, maxY );
+        yPos = juce::jmap( yData[readIndex], NEGATIVE_INFINITY_DB, MAX_DB, minY, maxY );
 
         path.lineTo( xPos, yPos);
 
@@ -686,6 +681,8 @@ void StereoImageMeter::update(juce::AudioBuffer<float>& buffer)
     correlationMeter.update( buffer );
 }
 
+//==============================================================================
+
 Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmcpp_project10AudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
 {
@@ -696,11 +693,28 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     addAndMakeVisible( histogramDisplays );
     addAndMakeVisible( stereoImageMeter );
     
+    setLookAndFeel( &lookAndFeel );
+    
+    // FOR SOME REASON, THIS GETS RID OF THE WHOLE SLIDER
+    //rmsThresholdSlider.setTextBoxStyle( juce::Slider::NoTextBox, true, 1, 1 );
+    
+    rmsThresholdSlider.setSliderStyle( juce::Slider::SliderStyle::LinearVertical );
+    rmsThresholdSlider.setRange( (double)NEGATIVE_INFINITY_DB, (double)MAX_DB );
+    addAndMakeVisible( rmsThresholdSlider );
+    
+    rmsThresholdSlider.onValueChange = [this]()
+    {
+        rmsWidget.updateThreshold( rmsThresholdSlider.getValue() );
+    };
+    
+    //addAndMakeVisible( peakThresholdSlider );
+    
     setSize (800, 640);
 }
 
 Pfmcpp_project10AudioProcessorEditor::~Pfmcpp_project10AudioProcessorEditor()
 {
+    setLookAndFeel( nullptr );
     stopTimer();
 }
 
@@ -712,18 +726,19 @@ void Pfmcpp_project10AudioProcessorEditor::paint (Graphics& g)
 
 void Pfmcpp_project10AudioProcessorEditor::resized()
 {
-    auto r = getLocalBounds().withSizeKeepingCentre(getWidth() * 0.95, getHeight() * 0.95);
     const int padding = 10;
+    auto r = getLocalBounds().withSizeKeepingCentre(getWidth() - padding, getHeight() - padding);
     
-    auto meterBounds = r.removeFromTop(r.getHeight() * 0.6).reduced(0, padding);
-    rmsWidget.setBounds( meterBounds.removeFromLeft(150) );
-    peakWidget.setBounds( meterBounds.removeFromLeft(150).translated(50, 0) );
+    const int meterWidth = 150;
+    auto top = r.removeFromTop(r.getHeight() * 0.6).withTrimmedBottom(padding);
+    rmsWidget.setBounds( top.removeFromLeft(meterWidth) );
+    rmsThresholdSlider.setBounds( rmsWidget.getDbScaleBounds().translated(padding/2, padding/2) );
     
-    auto midSideBounds = meterBounds.withTrimmedLeft( peakWidget.getWidth() * 0.5 + padding );
-    stereoImageMeter.setBounds( midSideBounds );
+    peakWidget.setBounds( top.removeFromRight(meterWidth) );
     
-    auto histogramBounds = r;
-    histogramDisplays.setBounds( histogramBounds );
+    stereoImageMeter.setBounds( top.reduced( padding, 0 ) );
+    
+    histogramDisplays.setBounds( r );
 }
 
 void Pfmcpp_project10AudioProcessorEditor::timerCallback()
