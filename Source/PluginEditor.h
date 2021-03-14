@@ -90,21 +90,23 @@ struct Tick
 class Meter : public juce::Component
 {
 public:
-    Meter() = default;
+    Meter();
     ~Meter() override = default;
 
     void paint( juce::Graphics& ) override;
     void resized() override;
     
     void update(float);
+    void updateThreshold(float);
+    void remakeGradient();
 
 private:
     
     float currentLevel{0.f};
-    
-    
+    float threshold{MAX_DB};
     
     DecayingValueHolder decayingValueHolder;
+    juce::ColourGradient gradient;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR( Meter )
 };
@@ -224,14 +226,14 @@ struct MacroMeterWidget : juce::Component
     void resized() override;
     
     void update(float);
+    void updateThreshold(float);
     
     std::vector<Tick> getTicks();
     int getMeterY();
     
-    void updateThreshold( float newThreshold ) { threshold = newThreshold; }
-private:
     
-    float threshold;
+private:
+
     Meter instantMeter, averageMeter;
     TextMeter textMeter;
     Averager<float> averager;
@@ -252,13 +254,9 @@ struct StereoMeterWidget : juce::Component
     
     void update(float, float);
     
-    juce::Rectangle<int> getDbScaleBounds() { return dbScale.displayBounds; }
+    juce::Rectangle<int> getDbScaleBounds();
     
-    void updateThreshold( float newThreshold )
-    {
-        leftMeterWidget.updateThreshold( newThreshold );
-        rightMeterWidget.updateThreshold( newThreshold );
-    }
+    void updateThreshold(float);
     
 private:
     MacroMeterWidget leftMeterWidget, rightMeterWidget;
@@ -325,11 +323,14 @@ struct HistogramDisplay : juce::Component
     void resized() override;
     
     void update(float);
+    void remakeGradient();
+    float threshold{0.f};
 
 private:
     CircularBuffer<float> buffer;
     juce::String label;
     juce::ColourGradient gradient;
+    
 };
 
 
@@ -345,9 +346,8 @@ struct HistogramWidget : juce::Component
     
     void update(float, float);
     
-private:
     const std::size_t bufferSize{64};
-    HistogramDisplay rmsDisplay{bufferSize, "RMS"}, peakDisplay{bufferSize, "PEAK"};
+    HistogramDisplay rmsDisplay{bufferSize, "RMS"}, peakDisplay{bufferSize, "PEAK"};    
 };
 
 
@@ -425,9 +425,7 @@ class PFMLookAndFeel : public juce::LookAndFeel_V4
                            float sliderPos, float minSliderPos, float maxSliderPos,
                            const Slider::SliderStyle style, juce::Slider& slider) override
     {
-        DBG( "slider val: " << slider.getValue() );
-        auto r = slider.getLocalBounds().toFloat();
-
+        auto r = slider.getBounds().toFloat();
         const float thickness = 2.5f;
         const float yPos = juce::jmap((float)slider.getValue(), NEGATIVE_INFINITY_DB, MAX_DB, r.getHeight(), 0.f);
         
@@ -459,7 +457,7 @@ private:
     AudioBuffer<float> buffer;
     
     StereoMeterWidget rmsWidget{"RMS"}, peakWidget{"PEAK"};
-    HistogramWidget histogramDisplays;
+    HistogramWidget histogramWidget;
     StereoImageMeter stereoImageMeter{ processor.getSampleRate() };
     
     PFMLookAndFeel lookAndFeel;
