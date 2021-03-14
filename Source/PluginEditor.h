@@ -324,13 +324,13 @@ struct HistogramDisplay : juce::Component
     
     void update(float);
     void remakeGradient();
-    float threshold{0.f};
+    void updateThreshold(float);
 
 private:
     CircularBuffer<float> buffer;
     juce::String label;
     juce::ColourGradient gradient;
-    
+    float threshold{0.f};
 };
 
 
@@ -435,6 +435,18 @@ class PFMLookAndFeel : public juce::LookAndFeel_V4
     
 };
 
+class ThresholdSlider : public juce::Slider
+{
+public:
+    
+    ThresholdSlider()
+    {
+        setRange( (double)NEGATIVE_INFINITY_DB, (double)MAX_DB );
+        setSliderStyle( juce::Slider::SliderStyle::LinearVertical );
+        setTextBoxStyle( juce::Slider::NoTextBox, true, 1, 1 );
+    }
+};
+
 //==============================================================================
 
 class Pfmcpp_project10AudioProcessorEditor  : public AudioProcessorEditor, public Timer
@@ -461,8 +473,8 @@ private:
     StereoImageMeter stereoImageMeter{ processor.getSampleRate() };
     
     PFMLookAndFeel lookAndFeel;
-    juce::Slider rmsThresholdSlider;
-    juce::Slider peakThresholdSlider;
+    ThresholdSlider rmsThresholdSlider;
+    ThresholdSlider peakThresholdSlider;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };

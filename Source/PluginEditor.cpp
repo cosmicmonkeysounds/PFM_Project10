@@ -170,20 +170,21 @@ void Meter::remakeGradient()
     juce::Colour yellow{ juce::Colours::yellow };
     juce::Colour red{ juce::Colours::red };
     
-    gradient.addColour( 0.1, green );
+    float h = getLocalBounds().toFloat().getHeight();
+    float t = juce::jmap( threshold, NEGATIVE_INFINITY_DB, MAX_DB, h, 0.f );
     
-    float yellowPercent = juce::jmap( 0.75f, 0.f, 1.f, NEGATIVE_INFINITY_DB, threshold );
-    gradient.addColour( (double)juce::jmap(yellowPercent, NEGATIVE_INFINITY_DB, MAX_DB, 0.f, 1.f), yellow );
-
-    float darkYellowPercent = juce::jmap( 0.90f, 0.f, 1.f, NEGATIVE_INFINITY_DB, threshold );
-    gradient.addColour( (double)juce::jmap(darkYellowPercent, NEGATIVE_INFINITY_DB, threshold, 0.f, 1.f), yellow.darker() );
-
-    float redPercent = juce::jmap( 0.98f, 0.f, 1.f, NEGATIVE_INFINITY_DB, threshold );
-    gradient.addColour( (double)juce::jmap(redPercent, NEGATIVE_INFINITY_DB, threshold, 0.f, 1.f), red );
-    gradient.addColour( 1.0, red.darker() );
+    gradient.point1 = juce::Point{0.f, h};
+    gradient.point2 = juce::Point{0.f, t};
     
-    gradient.point1 = juce::Point{0.f, 0.f};
-    gradient.point2 = juce::Point{0.f, threshold};
+    if( threshold > NEGATIVE_INFINITY_DB )
+    {
+        gradient.addColour( 0.0, green.darker() );
+        gradient.addColour( 0.1, green );
+        gradient.addColour( 0.9, yellow );
+        gradient.addColour( 0.98, yellow.darker() );
+    }
+    
+    gradient.addColour( 0.99, red );
 }
 
 
@@ -375,7 +376,10 @@ void StereoMeterWidget::updateThreshold( float newThreshold )
 
 juce::Rectangle<int> StereoMeterWidget::getDbScaleBounds()
 {
-    return dbScale.displayBounds;
+    auto screenBounds = dbScale.getScreenBounds();
+    int w = dbScale.displayBounds.getWidth();
+    int h = dbScale.displayBounds.getHeight();
+    return screenBounds.withSizeKeepingCentre( w, h );
 }
 
 //==============================================================================
@@ -448,24 +452,32 @@ void HistogramDisplay::update( float newValue )
 
 void HistogramDisplay::remakeGradient()
 {
+    gradient.clearColours();
+    
     juce::Colour green{ juce::Colours::green.withMultipliedAlpha(0.75f) };
     juce::Colour yellow{ juce::Colours::yellow.withMultipliedAlpha(0.75f) };
     juce::Colour red{ juce::Colours::red.withMultipliedAlpha(0.75f) };
     
-    gradient.addColour( 0.0, green );
+    float h = getLocalBounds().toFloat().getHeight();
+    float t = juce::jmap( threshold, NEGATIVE_INFINITY_DB, MAX_DB, h, 0.f );
     
-    float percentYellow = juce::jmap( 0.8f, 0.f, 1.f, NEGATIVE_INFINITY_DB, threshold );
-    gradient.addColour( (double)juce::jmap(percentYellow, NEGATIVE_INFINITY_DB, threshold, 0.f, 1.f), yellow );
+    gradient.point1 = juce::Point{0.f, h};
+    gradient.point2 = juce::Point{0.f, t};
     
-    float percentDarkYellow = juce::jmap( 0.9f, 0.f, 1.f, NEGATIVE_INFINITY_DB, threshold );
-    gradient.addColour( (double)juce::jmap(percentDarkYellow, NEGATIVE_INFINITY_DB, threshold, 0.f, 1.f), yellow.darker() );
-    
-    float percentRed = juce::jmap( 0.91f, 0.f, 1.f, NEGATIVE_INFINITY_DB, threshold );
-    gradient.addColour( (double)juce::jmap(percentRed, NEGATIVE_INFINITY_DB, threshold, 0.f, 1.f), red );
-    gradient.addColour( 1.0, red.darker() );
-    
-    gradient.point1 = juce::Point{0.f, 0.f};
-    gradient.point2 = juce::Point{0.f, threshold};
+    if( threshold > NEGATIVE_INFINITY_DB )
+    {
+        gradient.addColour( 0.0, green.darker() );
+        gradient.addColour( 0.1, green );
+        gradient.addColour( 0.8, yellow );
+        gradient.addColour( 0.98, yellow.darker() );
+    }
+    gradient.addColour( 0.99, red );
+}
+
+void HistogramDisplay::updateThreshold( float newThreshold )
+{
+    threshold = newThreshold;
+    remakeGradient();
 }
 
 
@@ -740,29 +752,19 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     addAndMakeVisible( stereoImageMeter );
     
     setLookAndFeel( &lookAndFeel );
-    
-    // FOR SOME REASON, THIS GETS RID OF THE WHOLE SLIDER
-    //rmsThresholdSlider.setTextBoxStyle( juce::Slider::NoTextBox, true, 1, 1 );
-    
-    rmsThresholdSlider.setSliderStyle( juce::Slider::SliderStyle::LinearVertical );
-    peakThresholdSlider.setSliderStyle( juce::Slider::SliderStyle::LinearVertical );
-    rmsThresholdSlider.setRange( (double)NEGATIVE_INFINITY_DB, (double)MAX_DB );
-    peakThresholdSlider.setRange( (double)NEGATIVE_INFINITY_DB, (double)MAX_DB );
-    
+        
     rmsThresholdSlider.onValueChange = [this]()
     {
-        DBG ("RMS");
         float t = rmsThresholdSlider.getValue();
         rmsWidget.updateThreshold( t );
-        histogramWidget.rmsDisplay.threshold = t;
+        histogramWidget.rmsDisplay.updateThreshold( t );
     };
     
     peakThresholdSlider.onValueChange = [this]()
     {
-        DBG ("PEAK");
         float t = peakThresholdSlider.getValue();
         peakWidget.updateThreshold( t );
-        histogramWidget.peakDisplay.threshold = t;
+        histogramWidget.peakDisplay.updateThreshold( t );
     };
     
     addAndMakeVisible( rmsThresholdSlider );
@@ -792,13 +794,12 @@ void Pfmcpp_project10AudioProcessorEditor::resized()
     const int meterWidth = 150;
     
     rmsWidget.setBounds( top.removeFromLeft(meterWidth) );
-    rmsThresholdSlider.setBounds( rmsWidget.getDbScaleBounds().translated(padding/2, padding/2) );
+    rmsThresholdSlider.setBounds( rmsWidget.getDbScaleBounds().translated(0, padding/2) );
     
     peakWidget.setBounds( top.removeFromRight(meterWidth) );
-    peakThresholdSlider.setBounds( peakWidget.getDbScaleBounds().translated(padding/2, padding/2) );
+    peakThresholdSlider.setBounds( peakWidget.getDbScaleBounds().translated(0, padding/2) );
     
     stereoImageMeter.setBounds( top.reduced( padding, 0 ) );
-
     histogramWidget.setBounds( r );
 }
 
