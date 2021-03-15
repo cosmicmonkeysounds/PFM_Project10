@@ -75,7 +75,7 @@ DecayingValueHolder::~DecayingValueHolder()
 void DecayingValueHolder::timerCallback()
 {
     
-    if( juce::Time::currentTimeMillis() - elapsedTime > holdTime )
+    if( juce::Time::currentTimeMillis() - elapsedTime > holdTime && holdTime != -1 )
     {
         if( decayRateDB < 1.f )
             dx += decayRateDB;
@@ -117,11 +117,21 @@ void DecayingValueHolder::setHoldTime( int newHoldTime )
     holdTime = newHoldTime;
 }
 
+int DecayingValueHolder::getHoldTime()
+{
+    return holdTime;
+}
+
+void DecayingValueHolder::reset()
+{
+    currentValue = NEGATIVE_INFINITY_DB;
+}
+
 //==============================================================================
 
 Meter::Meter()
 {
-    remakeGradient();
+
 }
 
 void Meter::paint( juce::Graphics& g )
@@ -132,16 +142,27 @@ void Meter::paint( juce::Graphics& g )
     float w      = r.getWidth();
     float h      = r.getHeight();
     float yLevel = juce::jmap( currentLevel, NEGATIVE_INFINITY_DB, MAX_DB, h, 0.f );
-    float yDecay = juce::jmap( decayingValueHolder.getCurrentValue(), NEGATIVE_INFINITY_DB, MAX_DB, h, 0.f );
+    
     
     juce::Rectangle<float> meter {0, yLevel, w, h - yLevel };
     g.setFillType( juce::FillType{gradient} );
-    //g.setGradientFill( gradient );
     g.fillRect( meter );
     
     
     g.setColour( juce::Colours::white );
-    g.fillRect( r.withHeight(4).withY(yDecay) );
+    r.setHeight(2.5f);
+    
+    if( shouldDrawTick )
+    {
+        if( decayingValueHolder.getHoldTime() == 0 )
+            r.setY(yLevel);
+        
+        else
+            r.setY( juce::jmap(decayingValueHolder.getCurrentValue(), NEGATIVE_INFINITY_DB, MAX_DB, h, 0.f) );
+            
+        g.fillRect( r );
+    }
+
 }
 
 void Meter::resized()
@@ -185,6 +206,26 @@ void Meter::remakeGradient()
     }
     
     gradient.addColour( 0.99, red );
+}
+
+void Meter::updateDecayRate( float val )
+{
+    decayingValueHolder.setDecayRate( val );
+}
+
+void Meter::updateTickTime( float t )
+{
+    decayingValueHolder.setHoldTime( t );
+}
+
+void Meter::resetTick()
+{
+    decayingValueHolder.reset();
+}
+
+void Meter::toggleTick(bool shouldDrawTick)
+{
+    shouldDrawTick = shouldDrawTick;
 }
 
 
@@ -293,17 +334,38 @@ void MacroMeterWidget::resized()
     
     const int innerPadding = 3;
     const float instantMeterWidth = r.getWidth() * 0.75f;
-    
-    instantMeter.setBounds( r.removeFromLeft(instantMeterWidth) );
-    averageMeter.setBounds( r.withTrimmedLeft(innerPadding) );
+        
+    if( drawType == "Both" )
+    {
+        instantMeter.setBounds( r.removeFromLeft(instantMeterWidth) );
+        averageMeter.setBounds( r.withTrimmedLeft(innerPadding) );
+    }
+
+    else if( drawType == "Peak" )
+    {
+        averageMeter.setBounds( 0, 0, 0 , 0 );
+        instantMeter.setBounds( r );
+    }
+
+    else if( drawType == "Avg" )
+    {
+        instantMeter.setBounds( 0, 0, 0 , 0 );
+        averageMeter.setBounds( r );
+    }
+
 }
 
 void MacroMeterWidget::update( float newValue )
 {
     instantMeter.update( newValue );
-    textMeter.update( newValue );
     averager.add( newValue );
     averageMeter.update( averager.getAverage() );
+    
+    if( drawType == "Both" || drawType == "Peak" )
+        textMeter.update( newValue );
+    
+    else if( drawType == "Avg" )
+        textMeter.update( averager.getAverage() );
 }
 
 int MacroMeterWidget::getMeterY()
@@ -317,6 +379,42 @@ void MacroMeterWidget::updateThreshold( float newThreshold )
 {
     instantMeter.updateThreshold( newThreshold );
     averageMeter.updateThreshold( newThreshold );
+    textMeter.valueHolder.setThreshold( newThreshold );
+}
+
+void MacroMeterWidget::updateDecayRate( float val )
+{
+    instantMeter.updateDecayRate( val );
+    averageMeter.updateDecayRate( val );
+}
+
+void MacroMeterWidget::updateTickTime( float t )
+{
+    instantMeter.updateTickTime(t);
+    averageMeter.updateTickTime(t);
+}
+
+void MacroMeterWidget::updateAveragerDuration( int val )
+{
+    textMeter.valueHolder.setHoldTime( val );
+}
+
+void MacroMeterWidget::setDrawType( const juce::String& val )
+{
+    drawType = val;
+    resized();
+}
+
+void MacroMeterWidget::resetTick()
+{
+    instantMeter.resetTick();
+    averageMeter.resetTick();
+}
+
+void MacroMeterWidget::toggleTick(bool shouldDrawTick)
+{
+    instantMeter.toggleTick(shouldDrawTick);
+    averageMeter.toggleTick(shouldDrawTick);
 }
 
 //==============================================================================
@@ -341,6 +439,8 @@ void StereoMeterWidget::paint( juce::Graphics& g )
         g.drawText( label, labelArea, j::centred );
         g.drawText( "R",   labelArea, j::centredRight );
     }
+    
+    //g.fillRect(dbScale.getScreenBounds());
 }
 
 void StereoMeterWidget::resized()
@@ -382,13 +482,49 @@ juce::Rectangle<int> StereoMeterWidget::getDbScaleBounds()
     return screenBounds.withSizeKeepingCentre( w, h );
 }
 
+void StereoMeterWidget::updateDecayRate( float val )
+{
+    leftMeterWidget.updateDecayRate( val );
+    rightMeterWidget.updateDecayRate( val );
+}
+
+void StereoMeterWidget::updateAveragerDuration( int val )
+{
+    leftMeterWidget.updateAveragerDuration( val );
+    rightMeterWidget.updateAveragerDuration( val );
+}
+
+void StereoMeterWidget::setDrawType( const juce::String& val )
+{
+    leftMeterWidget.setDrawType( val );
+    rightMeterWidget.setDrawType( val );
+}
+
+void StereoMeterWidget::updateTickTime( float t )
+{
+    leftMeterWidget.updateTickTime(t);
+    rightMeterWidget.updateTickTime(t);
+}
+
+void StereoMeterWidget::resetTick()
+{
+    leftMeterWidget.resetTick();
+    rightMeterWidget.resetTick();
+}
+
+void StereoMeterWidget::toggleTick(bool shouldDrawTick)
+{
+    leftMeterWidget.toggleTick(shouldDrawTick);
+    rightMeterWidget.toggleTick(shouldDrawTick);
+}
+
 //==============================================================================
 
 
 HistogramDisplay::HistogramDisplay( std::size_t bufferSize, juce::String l )
     : buffer( bufferSize, NEGATIVE_INFINITY_DB ), label(l)
 {
-    remakeGradient();
+    
 }
 
 void HistogramDisplay::paint( juce::Graphics& g )
@@ -442,6 +578,7 @@ void HistogramDisplay::resized()
     buffer.resize( getWidth(), NEGATIVE_INFINITY_DB );
     gradient.point1 = { 0, (float)getHeight() };
     gradient.point2 = { 0, 0 };
+    remakeGradient();
 }
 
 void HistogramDisplay::update( float newValue )
@@ -499,10 +636,20 @@ void HistogramWidget::paint( juce::Graphics& g )
 void HistogramWidget::resized()
 {
     auto r = getLocalBounds();
-    const int halfWidth = r.getWidth() / 2;
     const int padding = 10;
     
-    rmsDisplay.setBounds( r.removeFromLeft(halfWidth).reduced(padding) );
+    if( layout == "Stacked" )
+    {
+        const int h = r.getHeight() * 0.5;
+        rmsDisplay.setBounds( r.removeFromTop(h).reduced(padding) );
+    }
+        
+    else if( layout == "Side-by-Side" )
+    {
+        const int w = r.getWidth() * 0.5;
+        rmsDisplay.setBounds( r.removeFromLeft(w).reduced(padding) );
+    }
+    
     peakDisplay.setBounds( r.reduced(padding) );
 }
 
@@ -511,6 +658,12 @@ void HistogramWidget::update( float rms, float peak )
     rmsDisplay.update( rms );
     peakDisplay.update( peak );
     repaint();
+}
+
+void HistogramWidget::setLayout( const juce::String& newLayout )
+{
+    layout = newLayout;
+    resized();
 }
 
 
@@ -594,7 +747,6 @@ void Goniometer::resized()
         diameterLine.applyTransform( angleTransform );
     }
     
-    
     float pathYOffset  = (r.getHeight() - circleBounds.getHeight()) * 0.5f;
     float pathXOffset  = (r.getWidth()  - circleBounds.getWidth())  * 0.5f;
     
@@ -620,12 +772,17 @@ void Goniometer::update( const juce::AudioBuffer<float>& newBuffer )
 
 juce::Point<float> Goniometer::leftRightToMidSidePoint(float leftSample, float rightSample)
 {
-    const float mid           = (leftSample + rightSample) * minus3dB;
-    const float sides         = (leftSample - rightSample) * minus3dB;
+    const float mid           = ((leftSample + rightSample) * scale) * minus3dB;
+    const float sides         = ((leftSample - rightSample) * scale) * minus3dB;
     const float midInPixels   = juce::jmap( mid,   1.f, -1.f, 0.f, circleBounds.getHeight() );
     const float sidesInPixels = juce::jmap( sides, 1.f, -1.f, 0.f, circleBounds.getWidth() );
     
     return pathOffsetPoint + juce::Point<float> {sidesInPixels, midInPixels};
+}
+
+void Goniometer::setScale( double s )
+{
+    scale = (float)s;
 }
 
 //==============================================================================
@@ -739,7 +896,14 @@ void StereoImageMeter::update(juce::AudioBuffer<float>& buffer)
     correlationMeter.update( buffer );
 }
 
+void StereoImageMeter::setScale( double s )
+{
+    goniometer.setScale(s);
+}
+
 //==============================================================================
+
+#include <string>
 
 Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmcpp_project10AudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
@@ -769,8 +933,99 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     
     addAndMakeVisible( rmsThresholdSlider );
     addAndMakeVisible( peakThresholdSlider );
+    
+    decayRateBox.addItemList( {"-3dB/s", "-6dB/s", "-12dB/s", "-24dB/s", "-36dB/s"}, 1 );
+    decayRateBox.setSelectedId(1);
+    addAndMakeVisible( decayRateBox );
 
-    setSize (800, 640);
+    decayRateBox.onChange = [this]()
+    {
+        float val = std::abs( std::stof(decayRateBox.getText().toStdString()) );
+        rmsWidget.updateDecayRate( val );
+        peakWidget.updateDecayRate( val );
+    };
+    
+    averagerDurationBox.addItemList( {"100ms", "250ms", "500ms", "1000ms", "2000ms"}, 1 );
+    averagerDurationBox.setSelectedId(1);
+    addAndMakeVisible( averagerDurationBox );
+
+    averagerDurationBox.onChange = [this]()
+    {
+        int val = std::stoi(averagerDurationBox.getText().toStdString()) * 100;
+        rmsWidget.updateAveragerDuration( val );
+        peakWidget.updateAveragerDuration( val );
+    };
+    
+    meterViewBox.addItemList( {"Both", "Peak", "Avg"}, 1 );
+    meterViewBox.setSelectedId(1);
+    addAndMakeVisible(meterViewBox);
+    
+    meterViewBox.onChange = [this]()
+    {
+        juce::String val = meterViewBox.getText();
+        
+        rmsWidget.setDrawType(val);
+        peakWidget.setDrawType(val);
+    };
+    
+    addAndMakeVisible(scaleKnob);
+    scaleKnob.onValueChange = [this]()
+    {
+        stereoImageMeter.setScale( scaleKnob.getValue() );
+    };
+    scaleKnob.setValue(1.0);
+    
+    tickHoldTimeBox.addItemList( {"0s", "0.5s", "2s", "4s", "6s", "inf"}, 1 );
+    tickHoldTimeBox.setSelectedId(1);
+    addAndMakeVisible(tickHoldTimeBox);
+    tickHoldTimeBox.onChange = [this]()
+    {
+        const std::string t = tickHoldTimeBox.getText().toStdString();
+        int time;
+        
+        if( t != "inf" )
+            time = std::stof(t) * 100.f;
+        
+        else
+            time = -1;
+            
+        //DBG ("Tick: " << time );
+        rmsWidget.updateTickTime(time);
+        peakWidget.updateTickTime(time);
+        
+        resized();
+    };
+    
+    resetTickButton.onClick = [this]()
+    {
+        rmsWidget.resetTick();
+        peakWidget.resetTick();
+    };
+    
+    addAndMakeVisible(resetTickButton);
+    addAndMakeVisible(showTickButton);
+    
+    showTickButton.onClick = [this]()
+    {
+        bool shouldDrawTick = showTickButton.getToggleState();
+        DBG( juce::String(shouldDrawTick ? "on" : "off") );
+        rmsWidget.toggleTick( shouldDrawTick );
+        peakWidget.toggleTick( shouldDrawTick );
+        resized();
+    };
+    
+     //turns it on to start
+    showTickButton.triggerClick();
+    
+    histogramViewBox.addItemList( {"Stacked", "Side-by-Side"}, 1 );
+    histogramViewBox.setSelectedId(1);
+    addAndMakeVisible(histogramViewBox);
+    histogramViewBox.onChange = [this]()
+    {
+        histogramWidget.setLayout( histogramViewBox.getText() );
+    };
+
+    setSize (1000, 720);
 }
 
 Pfmcpp_project10AudioProcessorEditor::~Pfmcpp_project10AudioProcessorEditor()
@@ -794,11 +1049,47 @@ void Pfmcpp_project10AudioProcessorEditor::resized()
     const int meterWidth = 150;
     
     rmsWidget.setBounds( top.removeFromLeft(meterWidth) );
-    rmsThresholdSlider.setBounds( rmsWidget.getDbScaleBounds().translated(0, padding/2) );
+    rmsThresholdSlider.setBounds( rmsWidget.getDbScaleBounds() );
     
     peakWidget.setBounds( top.removeFromRight(meterWidth) );
-    peakThresholdSlider.setBounds( peakWidget.getDbScaleBounds().translated(0, padding/2) );
+    peakThresholdSlider.setBounds( peakWidget.getDbScaleBounds() );
     
+    const int controlPanelWidth  = 125;
+    const int controlPanelHeight = top.getHeight() / 3;
+
+    top.reduce(padding, 0);
+    auto leftControlPanel  = top.removeFromLeft( controlPanelWidth );
+    auto rightControlPanel = top.removeFromRight( controlPanelWidth );
+
+    decayRateBox.setBounds( leftControlPanel.removeFromTop(controlPanelHeight).withTrimmedBottom(padding) );
+    averagerDurationBox.setBounds( leftControlPanel.removeFromTop(controlPanelHeight).withTrimmedBottom(padding) );
+    meterViewBox.setBounds( leftControlPanel );
+
+    scaleKnob.setBounds( rightControlPanel.removeFromTop(controlPanelHeight).withTrimmedBottom(padding) );
+
+    const int tickPanelHeight = controlPanelHeight / 3;
+    auto tickPanel = rightControlPanel.removeFromTop(controlPanelHeight).withTrimmedBottom(padding);
+
+    showTickButton.setBounds( tickPanel.removeFromTop(tickPanelHeight) );
+
+    if( showTickButton.getToggleState() == true )
+    {
+        tickHoldTimeBox.setBounds( tickPanel.removeFromTop(tickPanelHeight) );
+
+        if( tickHoldTimeBox.getText() == "inf" )
+            resetTickButton.setBounds( tickPanel.removeFromTop(tickPanelHeight)  );
+        else
+            resetTickButton.setBounds( 0, 0, 0, 0 );
+    }
+
+    else
+    {
+        tickHoldTimeBox.setBounds( 0, 0, 0, 0 );
+        resetTickButton.setBounds( 0, 0, 0, 0 );
+    }
+
+    histogramViewBox.setBounds( rightControlPanel );
+
     stereoImageMeter.setBounds( top.reduced( padding, 0 ) );
     histogramWidget.setBounds( r );
 }
