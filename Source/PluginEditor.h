@@ -397,7 +397,7 @@ struct Goniometer : public juce::Component
     void resized() override;
     
     void update(const juce::AudioBuffer<float>&);
-    void setScale(double);
+    void setScale(float);
     
 private:
     
@@ -449,7 +449,7 @@ public:
     void resized() override;
     
     void update(juce::AudioBuffer<float>&);
-    void setScale(double);
+    void setScale(float);
     
 private:
     const int padding = 10;

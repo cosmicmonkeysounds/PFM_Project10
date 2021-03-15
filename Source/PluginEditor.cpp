@@ -152,8 +152,10 @@ void Meter::paint( juce::Graphics& g )
     g.setColour( juce::Colours::white );
     r.setHeight(2.5f);
     
-    if( shouldDrawTick )
+    if( shouldDrawTick == true )
     {
+        //DBG ("Drawing tick!");
+        
         if( decayingValueHolder.getHoldTime() == 0 )
             r.setY(yLevel);
         
@@ -223,9 +225,9 @@ void Meter::resetTick()
     decayingValueHolder.reset();
 }
 
-void Meter::toggleTick(bool shouldDrawTick)
+void Meter::toggleTick(bool draw)
 {
-    shouldDrawTick = shouldDrawTick;
+    shouldDrawTick = draw;
 }
 
 
@@ -337,19 +339,23 @@ void MacroMeterWidget::resized()
         
     if( drawType == "Both" )
     {
+        instantMeter.setVisible( true );
+        averageMeter.setVisible( true );
         instantMeter.setBounds( r.removeFromLeft(instantMeterWidth) );
         averageMeter.setBounds( r.withTrimmedLeft(innerPadding) );
     }
 
     else if( drawType == "Peak" )
     {
-        averageMeter.setBounds( 0, 0, 0 , 0 );
+        averageMeter.setVisible( false );
+        instantMeter.setVisible( true );
         instantMeter.setBounds( r );
     }
 
     else if( drawType == "Avg" )
     {
-        instantMeter.setBounds( 0, 0, 0 , 0 );
+        instantMeter.setVisible( false );
+        averageMeter.setVisible( true );
         averageMeter.setBounds( r );
     }
 
@@ -780,9 +786,9 @@ juce::Point<float> Goniometer::leftRightToMidSidePoint(float leftSample, float r
     return pathOffsetPoint + juce::Point<float> {sidesInPixels, midInPixels};
 }
 
-void Goniometer::setScale( double s )
+void Goniometer::setScale( float s )
 {
-    scale = (float)s;
+    scale = s;
 }
 
 //==============================================================================
@@ -896,7 +902,7 @@ void StereoImageMeter::update(juce::AudioBuffer<float>& buffer)
     correlationMeter.update( buffer );
 }
 
-void StereoImageMeter::setScale( double s )
+void StereoImageMeter::setScale( float s )
 {
     goniometer.setScale(s);
 }
@@ -951,7 +957,7 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
 
     averagerDurationBox.onChange = [this]()
     {
-        int val = std::stoi(averagerDurationBox.getText().toStdString()) * 100;
+        int val = std::stoi(averagerDurationBox.getText().toStdString());
         rmsWidget.updateAveragerDuration( val );
         peakWidget.updateAveragerDuration( val );
     };
@@ -971,7 +977,7 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     addAndMakeVisible(scaleKnob);
     scaleKnob.onValueChange = [this]()
     {
-        stereoImageMeter.setScale( scaleKnob.getValue() );
+        stereoImageMeter.setScale( (float)scaleKnob.getValue() );
     };
     scaleKnob.setValue(1.0);
     
@@ -984,12 +990,11 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
         int time;
         
         if( t != "inf" )
-            time = std::stof(t) * 100.f;
+            time = std::stof(t) * 1000.f;
         
         else
             time = -1;
             
-        //DBG ("Tick: " << time );
         rmsWidget.updateTickTime(time);
         peakWidget.updateTickTime(time);
         
@@ -1008,7 +1013,6 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     showTickButton.onClick = [this]()
     {
         bool shouldDrawTick = showTickButton.getToggleState();
-        DBG( juce::String(shouldDrawTick ? "on" : "off") );
         rmsWidget.toggleTick( shouldDrawTick );
         peakWidget.toggleTick( shouldDrawTick );
         resized();
@@ -1036,8 +1040,7 @@ Pfmcpp_project10AudioProcessorEditor::~Pfmcpp_project10AudioProcessorEditor()
 
 void Pfmcpp_project10AudioProcessorEditor::paint (Graphics& g)
 {
-    g.setColour( juce::Colours::ivory );
-    g.fillAll();
+    g.fillAll( juce::Colours::grey );
 }
 
 void Pfmcpp_project10AudioProcessorEditor::resized()
@@ -1071,6 +1074,10 @@ void Pfmcpp_project10AudioProcessorEditor::resized()
     auto tickPanel = rightControlPanel.removeFromTop(controlPanelHeight).withTrimmedBottom(padding);
 
     showTickButton.setBounds( tickPanel.removeFromTop(tickPanelHeight) );
+    
+    showTickButton.setVisible( true );
+    tickHoldTimeBox.setVisible( true );
+    resetTickButton.setVisible( true );
 
     if( showTickButton.getToggleState() == true )
     {
@@ -1079,13 +1086,13 @@ void Pfmcpp_project10AudioProcessorEditor::resized()
         if( tickHoldTimeBox.getText() == "inf" )
             resetTickButton.setBounds( tickPanel.removeFromTop(tickPanelHeight)  );
         else
-            resetTickButton.setBounds( 0, 0, 0, 0 );
+            resetTickButton.setVisible( false );
     }
 
     else
     {
-        tickHoldTimeBox.setBounds( 0, 0, 0, 0 );
-        resetTickButton.setBounds( 0, 0, 0, 0 );
+        tickHoldTimeBox.setVisible( false );
+        resetTickButton.setVisible( false );
     }
 
     histogramViewBox.setBounds( rightControlPanel );
