@@ -950,7 +950,7 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
         rmsWidget.updateDecayRate( val );
         peakWidget.updateDecayRate( val );
     };
-    
+
     averagerDurationBox.addItemList( {"100ms", "250ms", "500ms", "1000ms", "2000ms"}, 1 );
     averagerDurationBox.setSelectedId(1);
     addAndMakeVisible( averagerDurationBox );
@@ -961,26 +961,26 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
         rmsWidget.updateAveragerDuration( val );
         peakWidget.updateAveragerDuration( val );
     };
-    
+
     meterViewBox.addItemList( {"Both", "Peak", "Avg"}, 1 );
     meterViewBox.setSelectedId(1);
     addAndMakeVisible(meterViewBox);
-    
+
     meterViewBox.onChange = [this]()
     {
         juce::String val = meterViewBox.getText();
-        
+
         rmsWidget.setDrawType(val);
         peakWidget.setDrawType(val);
     };
-    
+
     addAndMakeVisible(scaleKnob);
     scaleKnob.onValueChange = [this]()
     {
         stereoImageMeter.setScale( (float)scaleKnob.getValue() );
     };
     scaleKnob.setValue(1.0);
-    
+
     tickHoldTimeBox.addItemList( {"0s", "0.5s", "2s", "4s", "6s", "inf"}, 1 );
     tickHoldTimeBox.setSelectedId(1);
     addAndMakeVisible(tickHoldTimeBox);
@@ -988,39 +988,43 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     {
         const std::string t = tickHoldTimeBox.getText().toStdString();
         int time;
-        
+
         if( t != "inf" )
             time = std::stof(t) * 1000.f;
-        
+
         else
             time = -1;
-            
+
         rmsWidget.updateTickTime(time);
         peakWidget.updateTickTime(time);
         
-        resized();
+        if( t == "inf" )
+            resetTickButton.setVisible( true );
+        else
+            resetTickButton.setVisible( false );
     };
-    
+
     resetTickButton.onClick = [this]()
     {
         rmsWidget.resetTick();
         peakWidget.resetTick();
     };
-    
+
     addAndMakeVisible(resetTickButton);
     addAndMakeVisible(showTickButton);
-    
+
     showTickButton.onClick = [this]()
     {
         bool shouldDrawTick = showTickButton.getToggleState();
         rmsWidget.toggleTick( shouldDrawTick );
         peakWidget.toggleTick( shouldDrawTick );
-        resized();
+        
+        tickHoldTimeBox.setVisible( shouldDrawTick );
+        resetTickButton.setVisible( tickHoldTimeBox.getText().toStdString() == "inf" && shouldDrawTick ? true : false );
     };
     
-     //turns it on to start
-    showTickButton.triggerClick();
-    
+    showTickButton.setToggleState( true, juce::NotificationType::dontSendNotification );
+
     histogramViewBox.addItemList( {"Stacked", "Side-by-Side"}, 1 );
     histogramViewBox.setSelectedId(1);
     addAndMakeVisible(histogramViewBox);
@@ -1052,10 +1056,10 @@ void Pfmcpp_project10AudioProcessorEditor::resized()
     const int meterWidth = 150;
     
     rmsWidget.setBounds( top.removeFromLeft(meterWidth) );
-    rmsThresholdSlider.setBounds( rmsWidget.getDbScaleBounds() );
+    rmsThresholdSlider.setBounds( rmsWidget.getDbScaleBounds().translated(0, padding) );
     
     peakWidget.setBounds( top.removeFromRight(meterWidth) );
-    peakThresholdSlider.setBounds( peakWidget.getDbScaleBounds() );
+    peakThresholdSlider.setBounds( peakWidget.getDbScaleBounds().translated(0, padding) );
     
     const int controlPanelWidth  = 125;
     const int controlPanelHeight = top.getHeight() / 3;
@@ -1074,26 +1078,8 @@ void Pfmcpp_project10AudioProcessorEditor::resized()
     auto tickPanel = rightControlPanel.removeFromTop(controlPanelHeight).withTrimmedBottom(padding);
 
     showTickButton.setBounds( tickPanel.removeFromTop(tickPanelHeight) );
-    
-    showTickButton.setVisible( true );
-    tickHoldTimeBox.setVisible( true );
-    resetTickButton.setVisible( true );
-
-    if( showTickButton.getToggleState() == true )
-    {
-        tickHoldTimeBox.setBounds( tickPanel.removeFromTop(tickPanelHeight) );
-
-        if( tickHoldTimeBox.getText() == "inf" )
-            resetTickButton.setBounds( tickPanel.removeFromTop(tickPanelHeight)  );
-        else
-            resetTickButton.setVisible( false );
-    }
-
-    else
-    {
-        tickHoldTimeBox.setVisible( false );
-        resetTickButton.setVisible( false );
-    }
+    tickHoldTimeBox.setBounds( tickPanel.removeFromTop(tickPanelHeight) );
+    resetTickButton.setBounds( tickPanel.removeFromTop(tickPanelHeight) );
 
     histogramViewBox.setBounds( rightControlPanel );
 
