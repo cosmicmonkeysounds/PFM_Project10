@@ -59,8 +59,11 @@ struct DecayingValueHolder : Timer
     void updateHeldValue(float);
     void setDecayRate(float);
     void setHoldTime(int);
+    int getHoldTime();
     
     float getCurrentValue() { return currentValue; }
+    
+    void reset();
 
 private:
     
@@ -99,6 +102,11 @@ public:
     void update(float);
     void updateThreshold(float);
     void remakeGradient();
+    void updateDecayRate(float);
+    void updateTickTime(float);
+    
+    void resetTick();
+    void toggleTick(bool);
 
 private:
     
@@ -107,6 +115,9 @@ private:
     
     DecayingValueHolder decayingValueHolder;
     juce::ColourGradient gradient;
+    
+    friend class MacroMeterWidget;
+    bool shouldDrawTick{true};
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR( Meter )
 };
@@ -149,12 +160,13 @@ public:
     void paint(Graphics&) override;
     void resized() override;
     void update(float);
-
+    ValueHolder valueHolder;
+    
 private:
     
     const int decimalPlaces = 2;
     float inputValue = NEGATIVE_INFINITY_DB;
-    ValueHolder valueHolder;
+    
     
 };
 
@@ -204,7 +216,11 @@ struct Averager
     float getAverage() const { return average.load(); }
     size_t getSize() const { return elementsToAverage.size(); }
     
+    
 private:
+    
+//    juce::int64 currTime = juce::Time::currentTimeMillis();
+//    float duration {100.f};
     
     std::vector<T> elementsToAverage;
     std::atomic<T> sumOfElements{ static_cast<T>(0) };
@@ -227,6 +243,13 @@ struct MacroMeterWidget : juce::Component
     
     void update(float);
     void updateThreshold(float);
+    void updateDecayRate(float);
+    void updateTickTime(float);
+    void updateAveragerDuration(int);
+    void setDrawType(const juce::String&);
+    
+    void resetTick();
+    void toggleTick(bool);
     
     std::vector<Tick> getTicks();
     int getMeterY();
@@ -237,8 +260,8 @@ private:
     Meter instantMeter, averageMeter;
     TextMeter textMeter;
     Averager<float> averager;
-    friend class StereoMeterWidget;
     
+    juce::String drawType{"Both"};
 };
 
 
@@ -257,12 +280,22 @@ struct StereoMeterWidget : juce::Component
     juce::Rectangle<int> getDbScaleBounds();
     
     void updateThreshold(float);
+    void updateDecayRate(float);
+    void updateTickTime(float);
+    void updateAveragerDuration(int);
+    
+    void resetTick();
+    void toggleTick(bool);
+    
+    void setDrawType(const juce::String&);
+    juce::String drawType;
     
 private:
     MacroMeterWidget leftMeterWidget, rightMeterWidget;
     DB_Scale dbScale;
     juce::Rectangle<int> labelArea;
     juce::String label;
+    
 };
 
 
@@ -347,7 +380,11 @@ struct HistogramWidget : juce::Component
     void update(float, float);
     
     const std::size_t bufferSize{64};
-    HistogramDisplay rmsDisplay{bufferSize, "RMS"}, peakDisplay{bufferSize, "PEAK"};    
+    HistogramDisplay rmsDisplay{bufferSize, "RMS"}, peakDisplay{bufferSize, "PEAK"};
+    
+    void setLayout(const juce::String&);
+    
+    juce::String layout;
 };
 
 
@@ -360,6 +397,7 @@ struct Goniometer : public juce::Component
     void resized() override;
     
     void update(const juce::AudioBuffer<float>&);
+    void setScale(float);
     
 private:
     
@@ -371,6 +409,8 @@ private:
     
     const float minus3dB = juce::Decibels::decibelsToGain(-3.f);
     juce::Point<float> leftRightToMidSidePoint(float, float);
+    
+    float scale;
 };
 
 //==============================================================================
@@ -409,6 +449,7 @@ public:
     void resized() override;
     
     void update(juce::AudioBuffer<float>&);
+    void setScale(float);
     
 private:
     const int padding = 10;
@@ -433,18 +474,82 @@ class PFMLookAndFeel : public juce::LookAndFeel_V4
         g.drawLine( 0.f, yPos, r.getWidth(), yPos, thickness );
     }
     
+    void drawComboBox( juce::Graphics& g, int width, int height, bool isButtonDown,
+                       int bx, int by, int bw, int bh, juce::ComboBox& box ) override
+    {
+        auto r = box.getLocalBounds().toFloat();
+        
+        const float cornerSize   = box.findParentComponentOfClass<ChoicePropertyComponent>() != nullptr ? 0.0f : 3.0f;
+        const float boxHeight    = height * 0.5f;
+        const float padding      = juce::jmin( width, height ) * 0.1f;
+        
+        auto boxBounds = r.removeFromBottom(boxHeight).reduced(0, padding);
+
+        g.setColour (box.findColour (juce::ComboBox::backgroundColourId));
+        g.fillRoundedRectangle (boxBounds, cornerSize);
+
+        g.setColour (box.findColour (juce::ComboBox::outlineColourId));
+        g.drawRoundedRectangle (boxBounds.reduced (0.5f, 0.5f), cornerSize, 1.0f);
+
+        auto arrowZone = boxBounds.withX(width - 30.f).withWidth(20.f);
+        juce::Path path;
+        
+        path.startNewSubPath (arrowZone.getX() + 3.0f,     arrowZone.getCentreY() - 2.0f);
+        path.lineTo          (arrowZone.getCentreX(),      arrowZone.getCentreY() + 3.0f);
+        path.lineTo          (arrowZone.getRight() - 3.0f, arrowZone.getCentreY() - 2.0f);
+
+        g.setColour (box.findColour (ComboBox::arrowColourId).withAlpha ((box.isEnabled() ? 0.9f : 0.2f)));
+        g.strokePath (path, PathStrokeType (2.0f));
+        
+        g.setFont( getComboBoxFont(box) );
+        g.drawText(box.getText(), boxBounds.withTrimmedLeft(30), juce::Justification::left);
+        g.drawText(box.getName(), r, juce::Justification::centred);
+    }
+    
+    Font getComboBoxFont (ComboBox& box) override
+    {
+        return { jmin (16.0f, (float) box.getHeight() / 2 * 0.85f) };
+    }
+
+    void positionComboBoxText (ComboBox& box, Label& label) override {}
+
+    
 };
 
-class ThresholdSlider : public juce::Slider
+
+
+struct ThresholdSlider : juce::Slider
 {
-public:
-    
     ThresholdSlider()
     {
         setRange( (double)NEGATIVE_INFINITY_DB, (double)MAX_DB );
         setSliderStyle( juce::Slider::SliderStyle::LinearVertical );
         setTextBoxStyle( juce::Slider::NoTextBox, true, 1, 1 );
     }
+};
+
+struct ScaleKnob : juce::Slider
+{
+    ScaleKnob()
+    {
+        setRange( 0.5, 2.0 );
+        setSliderStyle( juce::Slider::SliderStyle::Rotary );
+        setTextBoxStyle( juce::Slider::NoTextBox, true, 1, 1 );
+    }
+};
+
+struct PFMComboBox : juce::ComboBox
+{
+    PFMComboBox( const juce::String& name ) : ComboBox(name)
+    {
+        setEditableText( false );
+        setJustificationType( juce::Justification::centred );
+    }
+};
+
+struct PFMButton : public juce::Button
+{
+    
 };
 
 //==============================================================================
@@ -475,6 +580,18 @@ private:
     PFMLookAndFeel lookAndFeel;
     ThresholdSlider rmsThresholdSlider;
     ThresholdSlider peakThresholdSlider;
+    
+    PFMComboBox decayRateBox{"Decay Rate"};
+    PFMComboBox averagerDurationBox{"Averager Duration"};
+    PFMComboBox meterViewBox{"Meter View"};
+    
+    ScaleKnob scaleKnob;
+    
+    PFMComboBox tickHoldTimeBox{"Tick Hold Time"};
+    juce::TextButton resetTickButton{"Reset Tick"};
+    juce::ToggleButton showTickButton{"Show Tick"};
+    
+    PFMComboBox histogramViewBox{"Histogram View"};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };
