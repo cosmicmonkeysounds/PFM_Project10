@@ -111,6 +111,7 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
     
     Fifo<AudioBuffer<float>> fifo;
+    juce::ValueTree valueTree;
 
 private:
     //==============================================================================
