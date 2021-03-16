@@ -476,58 +476,43 @@ class PFMLookAndFeel : public juce::LookAndFeel_V4
     
     void drawComboBox( juce::Graphics& g, int width, int height, bool isButtonDown,
                        int bx, int by, int bw, int bh, juce::ComboBox& box ) override
-{
-//    const int boxHeight = box.getHeight() * 0.4;
-//    auto boxBounds = box.getLocalBounds().withHeight(boxHeight).translated(0, boxHeight);
-//
-    auto boxBounds = box.getLocalBounds();
-    g.setColour(box.findColour (ComboBox::backgroundColourId));
-    g.fillRect(boxBounds);
-
-    if (box.isEnabled() && box.hasKeyboardFocus (false))
     {
-        g.setColour (box.findColour (ComboBox::focusedOutlineColourId));
-        g.drawRect (boxBounds, 2);
+        auto r = box.getLocalBounds().toFloat();
+        
+        const float cornerSize   = box.findParentComponentOfClass<ChoicePropertyComponent>() != nullptr ? 0.0f : 3.0f;
+        const float boxHeight    = height * 0.5f;
+        const float padding      = juce::jmin( width, height ) * 0.1f;
+        
+        auto boxBounds = r.removeFromBottom(boxHeight).reduced(0, padding);
+
+        g.setColour (box.findColour (juce::ComboBox::backgroundColourId));
+        g.fillRoundedRectangle (boxBounds, cornerSize);
+
+        g.setColour (box.findColour (juce::ComboBox::outlineColourId));
+        g.drawRoundedRectangle (boxBounds.reduced (0.5f, 0.5f), cornerSize, 1.0f);
+
+        auto arrowZone = boxBounds.withX(width - 30.f).withWidth(20.f);
+        juce::Path path;
+        
+        path.startNewSubPath (arrowZone.getX() + 3.0f,     arrowZone.getCentreY() - 2.0f);
+        path.lineTo          (arrowZone.getCentreX(),      arrowZone.getCentreY() + 3.0f);
+        path.lineTo          (arrowZone.getRight() - 3.0f, arrowZone.getCentreY() - 2.0f);
+
+        g.setColour (box.findColour (ComboBox::arrowColourId).withAlpha ((box.isEnabled() ? 0.9f : 0.2f)));
+        g.strokePath (path, PathStrokeType (2.0f));
+        
+        g.setFont( getComboBoxFont(box) );
+        g.drawText(box.getText(), boxBounds.withTrimmedLeft(30), juce::Justification::left);
+        g.drawText(box.getName(), r, juce::Justification::centred);
     }
-    else
+    
+    Font getComboBoxFont (ComboBox& box) override
     {
-        g.setColour (box.findColour (ComboBox::outlineColourId));
-        g.drawRect (boxBounds);
+        return { jmin (16.0f, (float) box.getHeight() / 2 * 0.85f) };
     }
 
-    auto outlineThickness = box.isEnabled() ? (isButtonDown ? 1.2f : 0.5f) : 0.3f;
+    void positionComboBoxText (ComboBox& box, Label& label) override {}
 
-    auto baseColour = juce::Colours::darkslategrey.withMultipliedAlpha (box.isEnabled() ? 1.0f : 0.5f);
-
-    drawGlassLozenge (g,
-                      (float) bx + outlineThickness,        (float) by + outlineThickness,
-                      (float) bw - outlineThickness * 2.0f, (float) bh - outlineThickness * 2.0f,
-                      baseColour, outlineThickness, -1.0f,
-                      true, true, true, true);
-
-    if (box.isEnabled())
-    {
-        const float arrowX = 0.3f;
-        const float arrowH = 0.2f;
-
-        const auto x = (float) bx;
-        const auto y = (float) by;
-        const auto w = (float) bw;
-        const auto h = (float) bh;
-
-        Path p;
-        p.addTriangle (x + w * 0.5f,            y + h * (0.45f - arrowH),
-                       x + w * (1.0f - arrowX), y + h * 0.45f,
-                       x + w * arrowX,          y + h * 0.45f);
-
-        p.addTriangle (x + w * 0.5f,            y + h * (0.55f + arrowH),
-                       x + w * (1.0f - arrowX), y + h * 0.55f,
-                       x + w * arrowX,          y + h * 0.55f);
-
-        g.setColour (box.findColour (ComboBox::arrowColourId));
-        g.fillPath (p);
-    }
-}
     
 };
 
