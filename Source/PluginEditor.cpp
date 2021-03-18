@@ -924,6 +924,7 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     
     setLookAndFeel( &lookAndFeel );
     
+    rmsThresholdSlider.setValue(processor.valueTree.getPropertyAsValue("RMSThreshold", nullptr).getValue());
     rmsThresholdSlider.getValueObject().referTo(processor.valueTree.getPropertyAsValue("RMSThreshold", nullptr));
     rmsThresholdSlider.onValueChange = [this]()
     {
@@ -932,6 +933,7 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
         histogramWidget.rmsDisplay.updateThreshold( t );
     };
     
+    peakThresholdSlider.setValue(processor.valueTree.getPropertyAsValue("PeakThreshold", nullptr).getValue());
     peakThresholdSlider.getValueObject().referTo(processor.valueTree.getPropertyAsValue("PeakThreshold", nullptr));
     peakThresholdSlider.onValueChange = [this]()
     {
@@ -953,15 +955,14 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     decayRateBox.onChange = [this]()
     {
         auto v = decayRateBox.getSelectedId();
-        float val;
+        float val = 0.f;
         switch( v )
         {
-            case 1: val = 3.f;
-            case 2: val = 6.f;
-            case 3: val = 12.f;
-            case 4: val = 24.f;
-            case 5: val = 36.f;
-            default: val = 0.f;
+            case 1: val = 3.f;  break;
+            case 2: val = 6.f;  break;
+            case 3: val = 12.f; break;
+            case 4: val = 24.f; break;
+            case 5: val = 36.f; break;
         }
         rmsWidget.updateDecayRate( val );
         peakWidget.updateDecayRate( val );
@@ -976,16 +977,15 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
 
     averagerDurationBox.onChange = [this]()
     {
-        auto v = decayRateBox.getSelectedId();
+        int v = averagerDurationBox.getSelectedId();
         int val;
         switch( v )
         {
-            case 1: val = 100; //3db/sec
-            case 2: val = 250;//6db/sec
-            case 3: val = 500;
-            case 4: val = 1000;
-            case 5: val = 2000;
-            default: val = 0.f;
+            case 1: val = 100;  break;
+            case 2: val = 250;  break;
+            case 3: val = 500;  break;
+            case 4: val = 1000; break;
+            case 5: val = 2000; break;
         }
         rmsWidget.updateAveragerDuration( val );
         peakWidget.updateAveragerDuration( val );
@@ -1006,7 +1006,8 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     };
 
     addAndMakeVisible(scaleKnob);
-    scaleKnob.getValueObject().referTo(processor.valueTree.getPropertyAsValue("Scale", nullptr));    
+    scaleKnob.setValue(processor.valueTree.getPropertyAsValue("Scale", nullptr).getValue());
+    scaleKnob.getValueObject().referTo(processor.valueTree.getPropertyAsValue("Scale", nullptr));
     scaleKnob.onValueChange = [this]()
     {
         stereoImageMeter.setScale( (float)scaleKnob.getValue() );
@@ -1021,17 +1022,16 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     
     tickHoldTimeBox.onChange = [this]()
     {
-        auto v = decayRateBox.getSelectedId();
-        int time;
+        auto v = tickHoldTimeBox.getSelectedId();
+        int time = 0;
         switch( v )
         {
-            case 1: time = 0;
-            case 2: time = 5000;
-            case 3: time = 20000;
-            case 4: time = 40000;
-            case 5: time = 60000;
-            case 6: time = -1;
-            default: time = 0;
+            case 1: time = 0;     break;
+            case 2: time = 500;  break;
+            case 3: time = 2000; break;
+            case 4: time = 4000; break;
+            case 5: time = 6000; break;
+            case 6: time = -1;    break;
         }
         
         rmsWidget.updateTickTime(time);
