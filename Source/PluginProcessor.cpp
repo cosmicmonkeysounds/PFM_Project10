@@ -21,9 +21,18 @@ Pfmcpp_project10AudioProcessor::Pfmcpp_project10AudioProcessor()
                       #endif
                        .withOutput ("Output", AudioChannelSet::stereo(), true)
                      #endif
-                       ), valueTree( juce::Identifier("Parameters") )
+                       )
 #endif
 {
+    valueTree.setProperty("RMSThreshold",  0.0, nullptr);
+    valueTree.setProperty("PeakThreshold", 0.0, nullptr);
+    valueTree.setProperty("DecayRate",  "-3db/s", nullptr);
+    valueTree.setProperty("AveragerDuration", "100ms", nullptr);
+    valueTree.setProperty("MeterView", "Both", nullptr);
+    valueTree.setProperty("Scale", 1.0, nullptr);
+    valueTree.setProperty("TickHold", "0.5s", nullptr);
+    valueTree.setProperty("ShowTick", true, nullptr);
+    valueTree.setProperty("HistogramView", "Side-by-Side", nullptr);
 }
 
 Pfmcpp_project10AudioProcessor::~Pfmcpp_project10AudioProcessor()
@@ -183,17 +192,13 @@ AudioProcessorEditor* Pfmcpp_project10AudioProcessor::createEditor()
 //==============================================================================
 void Pfmcpp_project10AudioProcessor::getStateInformation (MemoryBlock& destData)
 {
-    std::unique_ptr<juce::XmlElement> xml (valueTree.createXml());
-    copyXmlToBinary (*xml, destData);
+    juce::MemoryOutputStream output ( destData, false );
+    valueTree.writeToStream( output );
 }
 
 void Pfmcpp_project10AudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
-
-    if (xmlState.get() != nullptr)
-        if (xmlState->hasTagName (valueTree.getType()))
-            valueTree = juce::ValueTree::fromXml (*xmlState);
+    valueTree = juce::ValueTree::readFromData( data, sizeInBytes );
 }
 
 //==============================================================================

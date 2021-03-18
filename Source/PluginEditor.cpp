@@ -914,6 +914,7 @@ void StereoImageMeter::setScale( float s )
 Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmcpp_project10AudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
 {
+    DBG ("\n\nCTOR: " << processor.valueTree.toXmlString());
     startTimerHz( 20 );
     
     addAndMakeVisible( rmsWidget );
@@ -923,13 +924,7 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     
     setLookAndFeel( &lookAndFeel );
     
-    juce::Identifier rmsID ("RMSThreshold");
-    
-    if( !processor.valueTree.hasProperty(rmsID) )
-        processor.valueTree.setProperty( rmsID, rmsThresholdSlider.getValueObject(), nullptr );
-    
-    rmsThresholdSlider.getValueObject().referTo(processor.valueTree.getPropertyAsValue(rmsID, nullptr));
-    
+    rmsThresholdSlider.getValueObject().referTo(processor.valueTree.getPropertyAsValue("RMSThreshold", nullptr));
     rmsThresholdSlider.onValueChange = [this]()
     {
         float t = rmsThresholdSlider.getValue();
@@ -937,13 +932,7 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
         histogramWidget.rmsDisplay.updateThreshold( t );
     };
     
-    juce::Identifier peakID ("PeakThreshold");
-    
-    if( !processor.valueTree.hasProperty(peakID) )
-        processor.valueTree.setProperty( peakID, peakThresholdSlider.getValueObject(), nullptr );
-    
-    peakThresholdSlider.getValueObject().referTo(processor.valueTree.getPropertyAsValue(peakID, nullptr));
-    
+    peakThresholdSlider.getValueObject().referTo(processor.valueTree.getPropertyAsValue("PeakThreshold", nullptr));
     peakThresholdSlider.onValueChange = [this]()
     {
         float t = peakThresholdSlider.getValue();
@@ -955,97 +944,100 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     addAndMakeVisible( peakThresholdSlider );
     
     decayRateBox.addItemList( {"-3dB/s", "-6dB/s", "-12dB/s", "-24dB/s", "-36dB/s"}, 1 );
-    decayRateBox.setSelectedId(1);
     addAndMakeVisible( decayRateBox );
     
-    juce::Identifier decayRateID ("DecayRate");
+    int decaySelected = (processor.valueTree.getPropertyAsValue("DecayRate", nullptr).getValue());
+    decayRateBox.setSelectedId( decaySelected );
+    decayRateBox.getSelectedIdAsValue().referTo(processor.valueTree.getPropertyAsValue("DecayRate", nullptr));
     
-    if( processor.valueTree.hasProperty(decayRateID) )
-        decayRateBox.setText( processor.valueTree.getProperty(decayRateID) );
-    
-    decayRateBox.onChange = [this, decayRateID]()
+    decayRateBox.onChange = [this]()
     {
-        float val = std::abs( std::stof(decayRateBox.getText().toStdString()) );
-        processor.valueTree.setProperty( decayRateID, decayRateBox.getText(), nullptr );
+        auto v = decayRateBox.getSelectedId();
+        float val;
+        switch( v )
+        {
+            case 1: val = 3.f;
+            case 2: val = 6.f;
+            case 3: val = 12.f;
+            case 4: val = 24.f;
+            case 5: val = 36.f;
+            default: val = 0.f;
+        }
         rmsWidget.updateDecayRate( val );
         peakWidget.updateDecayRate( val );
     };
     
     averagerDurationBox.addItemList( {"100ms", "250ms", "500ms", "1000ms", "2000ms"}, 1 );
-    averagerDurationBox.setSelectedId(1);
     addAndMakeVisible( averagerDurationBox );
     
-    juce::Identifier averagerDurationID ("AveragerDuration");
-    
-    if( processor.valueTree.hasProperty(averagerDurationID) )
-        averagerDurationBox.setText( processor.valueTree.getProperty(averagerDurationID) );
+    int averagerSelected = processor.valueTree.getPropertyAsValue("AveragerDuration", nullptr).getValue();
+    averagerDurationBox.setSelectedId( averagerSelected );
+    averagerDurationBox.getSelectedIdAsValue().referTo(processor.valueTree.getPropertyAsValue("AveragerDuration", nullptr));
 
-    averagerDurationBox.onChange = [this, averagerDurationID]()
+    averagerDurationBox.onChange = [this]()
     {
-        int val = std::stoi(averagerDurationBox.getText().toStdString());
-        processor.valueTree.setProperty( averagerDurationID, averagerDurationBox.getText(), nullptr );
+        auto v = decayRateBox.getSelectedId();
+        int val;
+        switch( v )
+        {
+            case 1: val = 100; //3db/sec
+            case 2: val = 250;//6db/sec
+            case 3: val = 500;
+            case 4: val = 1000;
+            case 5: val = 2000;
+            default: val = 0.f;
+        }
         rmsWidget.updateAveragerDuration( val );
         peakWidget.updateAveragerDuration( val );
     };
 
     meterViewBox.addItemList( {"Both", "Peak", "Avg"}, 1 );
-    meterViewBox.setSelectedId(1);
     addAndMakeVisible(meterViewBox);
     
-    juce::Identifier meterViewID ("MeterView");
-    
-    if( processor.valueTree.hasProperty(meterViewID) )
-        meterViewBox.setText( processor.valueTree.getProperty(meterViewID) );
+    int meterSelected = processor.valueTree.getPropertyAsValue("MeterView", nullptr).getValue();
+    meterViewBox.setSelectedId( meterSelected );
+    meterViewBox.getSelectedIdAsValue().referTo(processor.valueTree.getPropertyAsValue("MeterView", nullptr));
 
-    meterViewBox.onChange = [this, meterViewID]()
+    meterViewBox.onChange = [this]()
     {
         juce::String val = meterViewBox.getText();
-        processor.valueTree.setProperty( meterViewID, val, nullptr );
         rmsWidget.setDrawType(val);
         peakWidget.setDrawType(val);
     };
 
     addAndMakeVisible(scaleKnob);
-    
-    juce::Identifier scaleID ("Scale");
-    
-    if( !processor.valueTree.hasProperty(scaleID) )
-        processor.valueTree.setProperty( scaleID, scaleKnob.getValueObject(), nullptr );
-    
-    scaleKnob.getValueObject().referTo(processor.valueTree.getPropertyAsValue(scaleID, nullptr));
-    
+    scaleKnob.getValueObject().referTo(processor.valueTree.getPropertyAsValue("Scale", nullptr));    
     scaleKnob.onValueChange = [this]()
     {
         stereoImageMeter.setScale( (float)scaleKnob.getValue() );
     };
 
     tickHoldTimeBox.addItemList( {"0s", "0.5s", "2s", "4s", "6s", "inf"}, 1 );
-    tickHoldTimeBox.setSelectedId(1);
     addAndMakeVisible(tickHoldTimeBox);
     
-    juce::Identifier tickHoldID ("TickHold");
-      
-      if( processor.valueTree.hasProperty(tickHoldID) )
-          tickHoldTimeBox.setText( processor.valueTree.getProperty(tickHoldID) );
+    int tickTimeSelected = processor.valueTree.getPropertyAsValue("TickHold", nullptr).getValue();
+    tickHoldTimeBox.setSelectedId( tickTimeSelected );
+    tickHoldTimeBox.getSelectedIdAsValue().referTo(processor.valueTree.getPropertyAsValue("TickHold", nullptr));
     
-    tickHoldTimeBox.onChange = [this, tickHoldID]()
+    tickHoldTimeBox.onChange = [this]()
     {
-        const std::string t = tickHoldTimeBox.getText().toStdString();
-        
-        processor.valueTree.setProperty( tickHoldID, tickHoldTimeBox.getText(), nullptr );
-        
+        auto v = decayRateBox.getSelectedId();
         int time;
-
-        if( t != "inf" )
-            time = std::stof(t) * 1000.f;
-
-        else
-            time = -1;
-
+        switch( v )
+        {
+            case 1: time = 0;
+            case 2: time = 5000;
+            case 3: time = 20000;
+            case 4: time = 40000;
+            case 5: time = 60000;
+            case 6: time = -1;
+            default: time = 0;
+        }
+        
         rmsWidget.updateTickTime(time);
         peakWidget.updateTickTime(time);
         
-        if( t == "inf" )
+        if( time == -1 )
             resetTickButton.setVisible( true );
         else
             resetTickButton.setVisible( false );
@@ -1060,12 +1052,13 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     addAndMakeVisible(resetTickButton);
     addAndMakeVisible(showTickButton);
     
-    juce::Identifier showTickID ("ShowTick");
-    
-    showTickButton.onStateChange = [this, showTickID]()
+    showTickButton.getToggleStateValue().referTo(processor.valueTree.getPropertyAsValue("ShowTick", nullptr));
+    showTickButton.triggerClick();
+    showTickButton.triggerClick();
+        
+    showTickButton.onClick = [this]()
     {
         bool shouldDrawTick = showTickButton.getToggleState();
-        processor.valueTree.setProperty( showTickID, shouldDrawTick, nullptr );
         rmsWidget.toggleTick( shouldDrawTick );
         peakWidget.toggleTick( shouldDrawTick );
         
@@ -1073,32 +1066,19 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
         resetTickButton.setVisible( tickHoldTimeBox.getText().toStdString() == "inf" && shouldDrawTick ? true : false );
     };
         
-    if( processor.valueTree.hasProperty(showTickID) )
-        showTickButton.setToggleState( processor.valueTree.getProperty(showTickID), juce::NotificationType::dontSendNotification );
-    
-    else
-        showTickButton.setToggleState( true, juce::NotificationType::dontSendNotification );
-
-    // this is a hack that sets it to the proper value.
-    showTickButton.triggerClick();
-    showTickButton.triggerClick();
-
     histogramViewBox.addItemList( {"Stacked", "Side-by-Side"}, 1 );
-    histogramViewBox.setSelectedId(1);
     addAndMakeVisible(histogramViewBox);
     
-    juce::Identifier histogramViewID ("HistogramView");
-      
-      if( processor.valueTree.hasProperty(histogramViewID) )
-          histogramViewBox.setText( processor.valueTree.getProperty(histogramViewID) );
+    int histogramViewSelected = processor.valueTree.getPropertyAsValue("HistogramView", nullptr).getValue();
+    histogramViewBox.setSelectedId( histogramViewSelected );
+    histogramViewBox.getSelectedIdAsValue().referTo(processor.valueTree.getPropertyAsValue("HistogramView", nullptr));
     
-    histogramViewBox.onChange = [this, histogramViewID]()
+    histogramViewBox.onChange = [this]()
     {
-        processor.valueTree.setProperty( histogramViewID, histogramViewBox.getText(), nullptr );
         histogramWidget.setLayout( histogramViewBox.getText() );
     };
     
-    DBG ("\n\nCTOR: " << processor.valueTree.toXmlString());
+
 
     setSize (1000, 720);
 }
