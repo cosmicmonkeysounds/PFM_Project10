@@ -911,6 +911,16 @@ void StereoImageMeter::setScale( float s )
 
 #include <string>
 
+void Pfmcpp_project10AudioProcessorEditor::updateTickVisibility()
+{
+    bool shouldDrawTick = showTickButton.getToggleState();
+    rmsWidget.toggleTick( shouldDrawTick );
+    peakWidget.toggleTick( shouldDrawTick );
+    
+    tickHoldTimeBox.setVisible( shouldDrawTick );
+    resetTickButton.setVisible( tickHoldTimeBox.getSelectedId() == 6 && shouldDrawTick ? true : false );
+}
+
 Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmcpp_project10AudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
 {
@@ -923,9 +933,9 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     addAndMakeVisible( stereoImageMeter );
     
     setLookAndFeel( &lookAndFeel );
+
+    //==============================================================================
     
-    rmsThresholdSlider.setValue(processor.valueTree.getPropertyAsValue("RMSThreshold", nullptr).getValue());
-    rmsThresholdSlider.getValueObject().referTo(processor.valueTree.getPropertyAsValue("RMSThreshold", nullptr));
     rmsThresholdSlider.onValueChange = [this]()
     {
         float t = rmsThresholdSlider.getValue();
@@ -933,8 +943,12 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
         histogramWidget.rmsDisplay.updateThreshold( t );
     };
     
-    peakThresholdSlider.setValue(processor.valueTree.getPropertyAsValue("PeakThreshold", nullptr).getValue());
-    peakThresholdSlider.getValueObject().referTo(processor.valueTree.getPropertyAsValue("PeakThreshold", nullptr));
+    addAndMakeVisible( rmsThresholdSlider );
+    rmsThresholdSlider.setValue(processor.valueTree.getPropertyAsValue("RMSThreshold", nullptr).getValue());
+    rmsThresholdSlider.getValueObject().referTo(processor.valueTree.getPropertyAsValue("RMSThreshold", nullptr));
+
+    //==============================================================================
+    
     peakThresholdSlider.onValueChange = [this]()
     {
         float t = peakThresholdSlider.getValue();
@@ -942,15 +956,11 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
         histogramWidget.peakDisplay.updateThreshold( t );
     };
     
-    addAndMakeVisible( rmsThresholdSlider );
     addAndMakeVisible( peakThresholdSlider );
+    peakThresholdSlider.setValue(processor.valueTree.getPropertyAsValue("PeakThreshold", nullptr).getValue());
+    peakThresholdSlider.getValueObject().referTo(processor.valueTree.getPropertyAsValue("PeakThreshold", nullptr));
     
-    decayRateBox.addItemList( {"-3dB/s", "-6dB/s", "-12dB/s", "-24dB/s", "-36dB/s"}, 1 );
-    addAndMakeVisible( decayRateBox );
-    
-    int decaySelected = (processor.valueTree.getPropertyAsValue("DecayRate", nullptr).getValue());
-    decayRateBox.setSelectedId( decaySelected );
-    decayRateBox.getSelectedIdAsValue().referTo(processor.valueTree.getPropertyAsValue("DecayRate", nullptr));
+    //==============================================================================
     
     decayRateBox.onChange = [this]()
     {
@@ -968,12 +978,11 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
         peakWidget.updateDecayRate( val );
     };
     
-    averagerDurationBox.addItemList( {"100ms", "250ms", "500ms", "1000ms", "2000ms"}, 1 );
-    addAndMakeVisible( averagerDurationBox );
+    addAndMakeVisible( decayRateBox );
+    decayRateBox.addItemList( {"-3dB/s", "-6dB/s", "-12dB/s", "-24dB/s", "-36dB/s"}, 1 );
+    decayRateBox.getSelectedIdAsValue().referTo(processor.valueTree.getPropertyAsValue("DecayRate", nullptr));
     
-    int averagerSelected = processor.valueTree.getPropertyAsValue("AveragerDuration", nullptr).getValue();
-    averagerDurationBox.setSelectedId( averagerSelected );
-    averagerDurationBox.getSelectedIdAsValue().referTo(processor.valueTree.getPropertyAsValue("AveragerDuration", nullptr));
+    //==============================================================================
 
     averagerDurationBox.onChange = [this]()
     {
@@ -990,13 +999,12 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
         rmsWidget.updateAveragerDuration( val );
         peakWidget.updateAveragerDuration( val );
     };
-
-    meterViewBox.addItemList( {"Both", "Peak", "Avg"}, 1 );
-    addAndMakeVisible(meterViewBox);
     
-    int meterSelected = processor.valueTree.getPropertyAsValue("MeterView", nullptr).getValue();
-    meterViewBox.setSelectedId( meterSelected );
-    meterViewBox.getSelectedIdAsValue().referTo(processor.valueTree.getPropertyAsValue("MeterView", nullptr));
+    addAndMakeVisible( averagerDurationBox );
+    averagerDurationBox.addItemList( {"100ms", "250ms", "500ms", "1000ms", "2000ms"}, 1 );
+    averagerDurationBox.getSelectedIdAsValue().referTo(processor.valueTree.getPropertyAsValue("AveragerDuration", nullptr));
+    
+    //==============================================================================
 
     meterViewBox.onChange = [this]()
     {
@@ -1004,21 +1012,24 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
         rmsWidget.setDrawType(val);
         peakWidget.setDrawType(val);
     };
+    
+    addAndMakeVisible(meterViewBox);
+    meterViewBox.addItemList( {"Both", "Peak", "Avg"}, 1 );
+    meterViewBox.getSelectedIdAsValue().referTo(processor.valueTree.getPropertyAsValue("MeterView", nullptr));
+    
+    //==============================================================================
+    
 
-    addAndMakeVisible(scaleKnob);
-    scaleKnob.setValue(processor.valueTree.getPropertyAsValue("Scale", nullptr).getValue());
-    scaleKnob.getValueObject().referTo(processor.valueTree.getPropertyAsValue("Scale", nullptr));
     scaleKnob.onValueChange = [this]()
     {
         stereoImageMeter.setScale( (float)scaleKnob.getValue() );
     };
-
-    tickHoldTimeBox.addItemList( {"0s", "0.5s", "2s", "4s", "6s", "inf"}, 1 );
-    addAndMakeVisible(tickHoldTimeBox);
     
-    int tickTimeSelected = processor.valueTree.getPropertyAsValue("TickHold", nullptr).getValue();
-    tickHoldTimeBox.setSelectedId( tickTimeSelected );
-    tickHoldTimeBox.getSelectedIdAsValue().referTo(processor.valueTree.getPropertyAsValue("TickHold", nullptr));
+    addAndMakeVisible(scaleKnob);
+    scaleKnob.setValue(processor.valueTree.getPropertyAsValue("Scale", nullptr).getValue());
+    scaleKnob.getValueObject().referTo(processor.valueTree.getPropertyAsValue("Scale", nullptr));
+        
+    //==============================================================================
     
     tickHoldTimeBox.onChange = [this]()
     {
@@ -1042,46 +1053,36 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
         else
             resetTickButton.setVisible( false );
     };
-
+    
+    addAndMakeVisible(tickHoldTimeBox);
+    tickHoldTimeBox.addItemList( {"0s", "0.5s", "2s", "4s", "6s", "inf"}, 1 );
+    tickHoldTimeBox.getSelectedIdAsValue().referTo(processor.valueTree.getPropertyAsValue("TickHold", nullptr));
+    
+    //==============================================================================
+    
+    addAndMakeVisible(resetTickButton);
     resetTickButton.onClick = [this]()
     {
         rmsWidget.resetTick();
         peakWidget.resetTick();
     };
-
-    addAndMakeVisible(resetTickButton);
+    
+    //==============================================================================
+    
     addAndMakeVisible(showTickButton);
-    
+    showTickButton.onClick = [this]() { this->updateTickVisibility(); };
     showTickButton.getToggleStateValue().referTo(processor.valueTree.getPropertyAsValue("ShowTick", nullptr));
+    updateTickVisibility();
     
-    bool shouldShowTickWidgets = showTickButton.getToggleState();
-    tickHoldTimeBox.setVisible( shouldShowTickWidgets );
-    resetTickButton.setVisible( (tickHoldTimeBox.getSelectedId() == 6 && shouldShowTickWidgets ? true : false) );
-        
-    showTickButton.onClick = [this]()
-    {
-        bool shouldDrawTick = showTickButton.getToggleState();
-        rmsWidget.toggleTick( shouldDrawTick );
-        peakWidget.toggleTick( shouldDrawTick );
-        
-        tickHoldTimeBox.setVisible( shouldDrawTick );
-        resetTickButton.setVisible( tickHoldTimeBox.getSelectedId() == 6 && shouldDrawTick ? true : false );
-    };
-        
-    histogramViewBox.addItemList( {"Stacked", "Side-by-Side"}, 1 );
+    //==============================================================================
+    
     addAndMakeVisible(histogramViewBox);
-    
-    int histogramViewSelected = processor.valueTree.getPropertyAsValue("HistogramView", nullptr).getValue();
-    histogramViewBox.setSelectedId( histogramViewSelected );
+    histogramViewBox.addItemList( {"Stacked", "Side-by-Side"}, 1 );
+    histogramViewBox.onChange = [this]() { histogramWidget.setLayout( histogramViewBox.getText() ); };
     histogramViewBox.getSelectedIdAsValue().referTo(processor.valueTree.getPropertyAsValue("HistogramView", nullptr));
     
-    histogramViewBox.onChange = [this]()
-    {
-        histogramWidget.setLayout( histogramViewBox.getText() );
-    };
+    //==============================================================================
     
-
-
     setSize (1000, 720);
 }
 

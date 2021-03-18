@@ -590,6 +590,7 @@ private:
     PFMComboBox tickHoldTimeBox{"Tick Hold Time"};
     juce::TextButton resetTickButton{"Reset Tick"};
     juce::ToggleButton showTickButton{"Show Tick"};
+    void updateTickVisibility();
     
     PFMComboBox histogramViewBox{"Histogram View"};
 
