@@ -1037,7 +1037,7 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
         rmsWidget.updateTickTime(time);
         peakWidget.updateTickTime(time);
         
-        if( time == -1 )
+        if( time == -1 && showTickButton.getToggleState() == true )
             resetTickButton.setVisible( true );
         else
             resetTickButton.setVisible( false );
@@ -1053,8 +1053,10 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
     addAndMakeVisible(showTickButton);
     
     showTickButton.getToggleStateValue().referTo(processor.valueTree.getPropertyAsValue("ShowTick", nullptr));
-    showTickButton.triggerClick();
-    showTickButton.triggerClick();
+    
+    bool shouldShowTickWidgets = showTickButton.getToggleState();
+    tickHoldTimeBox.setVisible( shouldShowTickWidgets );
+    resetTickButton.setVisible( (tickHoldTimeBox.getSelectedId() == 6 && shouldShowTickWidgets ? true : false) );
         
     showTickButton.onClick = [this]()
     {
@@ -1063,7 +1065,7 @@ Pfmcpp_project10AudioProcessorEditor::Pfmcpp_project10AudioProcessorEditor (Pfmc
         peakWidget.toggleTick( shouldDrawTick );
         
         tickHoldTimeBox.setVisible( shouldDrawTick );
-        resetTickButton.setVisible( tickHoldTimeBox.getText().toStdString() == "inf" && shouldDrawTick ? true : false );
+        resetTickButton.setVisible( tickHoldTimeBox.getSelectedId() == 6 && shouldDrawTick ? true : false );
     };
         
     histogramViewBox.addItemList( {"Stacked", "Side-by-Side"}, 1 );
