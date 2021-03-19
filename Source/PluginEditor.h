@@ -592,6 +592,14 @@ private:
     juce::ToggleButton showTickButton{"Show Tick"};
     
     PFMComboBox histogramViewBox{"Histogram View"};
+    
+    void updateTickVisibility();
+    void updateDecayBox();
+    void updateThreshold(juce::Slider&, StereoMeterWidget&, HistogramDisplay&);
+    void updateAveragerDuration();
+    void updateMeterView();
+    void updateTickHold();
+    void resetTick();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Pfmcpp_project10AudioProcessorEditor)
 };

@@ -24,10 +24,20 @@ Pfmcpp_project10AudioProcessor::Pfmcpp_project10AudioProcessor()
                        )
 #endif
 {
+    valueTree.setProperty("RMSThreshold",  0.0, nullptr);
+    valueTree.setProperty("PeakThreshold", 0.0, nullptr);
+    valueTree.setProperty("DecayRate",  "-3db/s", nullptr);
+    valueTree.setProperty("AveragerDuration", "100ms", nullptr);
+    valueTree.setProperty("MeterView", "Both", nullptr);
+    valueTree.setProperty("Scale", 1.0, nullptr);
+    valueTree.setProperty("TickHold", "0.5s", nullptr);
+    valueTree.setProperty("ShowTick", true, nullptr);
+    valueTree.setProperty("HistogramView", "Side-by-Side", nullptr);
 }
 
 Pfmcpp_project10AudioProcessor::~Pfmcpp_project10AudioProcessor()
 {
+    
 }
 
 //==============================================================================
@@ -182,15 +192,13 @@ AudioProcessorEditor* Pfmcpp_project10AudioProcessor::createEditor()
 //==============================================================================
 void Pfmcpp_project10AudioProcessor::getStateInformation (MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
+    juce::MemoryOutputStream output ( destData, false );
+    valueTree.writeToStream( output );
 }
 
 void Pfmcpp_project10AudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
+    valueTree = juce::ValueTree::readFromData( data, sizeInBytes );
 }
 
 //==============================================================================
